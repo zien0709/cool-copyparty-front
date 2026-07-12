@@ -76,13 +76,13 @@ function isVideoExt(ext: string) {
 }
 
 function getThumbUrl(serverUrl: string, currentPath: string, file: FileItem) {
-  const pathWithTh = `${currentPath}${file.href}?th`;
   const params = new URLSearchParams({
     op: "file",
     serverUrl,
-    path: pathWithTh,
+    path: `${currentPath}${file.href}`,
     cache: "1",
   });
+  if (isImageExt(file.ext)) params.set("thumb", "1");
   return `/api/action?${params.toString()}`;
 }
 

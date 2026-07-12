@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import sharp from "sharp";
 import { decrypt, encrypt, generateCookieExpiration } from "@/lib/crypto";
 
 export const runtime = "nodejs";
@@ -95,6 +96,7 @@ export async function GET(req: NextRequest) {
   if (op === "file") {
     const wantCache = searchParams.get("cache") === "1";
     const wantDownload = searchParams.get("download") === "1";
+    const wantThumbnail = searchParams.get("thumb") === "1";
     const range = req.headers.get("range");
 
     let targetUrl = `${serverUrl}${path}`;
@@ -108,8 +110,44 @@ export async function GET(req: NextRequest) {
     const url = appendPwToUrl(targetUrl, pw);
     const upstream = await fetch(url, {
       method: "GET",
-      headers: range ? { Range: range } : undefined,
+      headers: !wantThumbnail && range ? { Range: range } : undefined,
     });
+
+    if (wantThumbnail && upstream.ok) {
+      const contentType = upstream.headers.get("content-type") || "";
+
+      // Resize in Next.js so thumbnails do not depend on Copyparty's
+      // optional Python thumbnail dependencies.
+      if (contentType.startsWith("image/")) {
+        const original = Buffer.from(await upstream.arrayBuffer());
+        try {
+          const thumbnail = await sharp(original)
+            .resize(256, 256, {
+              fit: "inside",
+              withoutEnlargement: true,
+            })
+            .webp({ quality: 80 })
+            .toBuffer();
+
+          return new NextResponse(new Uint8Array(thumbnail), {
+            status: 200,
+            headers: {
+              "Cache-Control": wantCache
+                ? "public, max-age=604800, immutable"
+                : "no-store, max-age=0",
+              "Content-Length": String(thumbnail.byteLength),
+              "Content-Type": "image/webp",
+            },
+          });
+        } catch {
+          // Fall back to the original bytes for unsupported formats.
+          return new NextResponse(new Uint8Array(original), {
+            status: upstream.status,
+            headers: upstream.headers,
+          });
+        }
+      }
+    }
 
     const res = new NextResponse(upstream.body, {
       status: upstream.status,

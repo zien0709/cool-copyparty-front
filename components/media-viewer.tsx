@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, FileTextIcon, Loader2Icon, XIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -105,7 +105,7 @@ export function MediaViewer({
   return (
     <Dialog open={!!file} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full flex flex-col p-0 overflow-hidden bg-background/95 backdrop-blur">
-        <DialogHeader className="p-4 border-b flex-row items-center justify-between space-y-0">
+        <DialogHeader className="p-4 pr-14 border-b flex-row items-center justify-between space-y-0">
           <div className="flex items-center gap-3 overflow-hidden">
             <DialogTitle className="text-base font-medium truncate">
               {decodeURIComponent(file.href)}
@@ -118,9 +118,6 @@ export function MediaViewer({
               onClick={() => onDownload(file)}
             >
               <DownloadIcon className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <XIcon className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
