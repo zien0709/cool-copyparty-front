@@ -1,7 +1,7 @@
-import type { Metadata } from "next"
-import Link from "next/link"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Cool Copyparty – Another new Front End Self-hosted file management",
@@ -32,22 +32,24 @@ export const metadata: Metadata = {
     "file management",
     "open source",
   ],
-}
+};
 
 export default async function LandingPage() {
-  const cookieStore = await cookies()
-  const auth = cookieStore.get("copyparty_auth")
+  const cookieStore = await cookies();
+  const auth = cookieStore.get("copyparty_auth");
   if (auth?.value) {
-    redirect("/app")
+    redirect("/app");
   }
 
   return (
     <main className="min-h-[calc(100vh-0px)] flex flex-col items-center justify-center p-4 sm:p-6 safe-px">
       <section className="w-full max-w-3xl text-center space-y-6">
-        <h1 className="text-3xl sm:text-4xl font-bold">Cool Copyparty – Another new Front end for your copyparty server</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold">
+          Cool Copyparty – Another new Front end for your copyparty server
+        </h1>
         <p className="text-base sm:text-lg text-muted-foreground">
-          A clean, simple front-end for your Copyparty server. Secure cookie auth, smooth
-          uploads, browsing, thumbnails, and easy sharing.
+          A clean, simple front-end for your Copyparty server. Secure cookie
+          auth, smooth uploads, browsing, thumbnails, and easy sharing.
         </p>
         <ul className="text-sm text-muted-foreground list-disc list-inside text-left mx-auto w-full max-w-2xl space-y-1">
           <li>SEO-friendly: descriptive metadata, keywords, and clean HTML.</li>
@@ -73,9 +75,18 @@ export default async function LandingPage() {
         </div>
 
         <footer className="pt-6 text-xs text-muted-foreground">
-          This is a front-end only, the <a className="underline" href="https://github.com/CopyParty/copyparty" target="_blank" rel="noreferrer">copyparty</a> server should be self-hosted.
+          This is a front-end only, the{" "}
+          <a
+            className="underline"
+            href="https://github.com/CopyParty/copyparty"
+            target="_blank"
+            rel="noreferrer"
+          >
+            copyparty
+          </a>{" "}
+          server should be self-hosted.
         </footer>
       </section>
     </main>
-  )
+  );
 }

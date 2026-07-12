@@ -1,82 +1,97 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FolderIcon, SearchIcon, ServerIcon, Loader2Icon, InfoIcon } from "lucide-react"
+import {
+  FolderIcon,
+  InfoIcon,
+  Loader2Icon,
+  SearchIcon,
+  ServerIcon,
+} from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface LoginFormProps {
-  onLogin: (serverUrl: string) => void
+  onLogin: (serverUrl: string) => void;
 }
 
 export function LoginForm({ onLogin }: LoginFormProps) {
-  const [serverUrl, setServerUrl] = useState("http://127.0.0.1:3923")
-  const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [isScanning, setIsScanning] = useState(false)
-  const [scannedServers, setScannedServers] = useState<string[]>([])
-  const [hasScanned, setHasScanned] = useState(false)
+  const [serverUrl, setServerUrl] = useState("http://127.0.0.1:3923");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannedServers, setScannedServers] = useState<string[]>([]);
+  const [hasScanned, setHasScanned] = useState(false);
 
-  const isDemo = serverUrl.startsWith("demo://")
+  const isDemo = serverUrl.startsWith("demo://");
 
   const handleScan = async () => {
-    if (isDemo) return
-    setIsScanning(true)
-    setError("")
+    if (isDemo) return;
+    setIsScanning(true);
+    setError("");
     try {
-      const res = await fetch(`/api/scan?serverUrl=${encodeURIComponent(serverUrl)}`)
+      const res = await fetch(
+        `/api/scan?serverUrl=${encodeURIComponent(serverUrl)}`,
+      );
       if (res.ok) {
-        const data = await res.json()
-        setScannedServers(data.targets || [])
-        setHasScanned(true)
+        const data = await res.json();
+        setScannedServers(data.targets || []);
+        setHasScanned(true);
       } else {
-        const data = await res.json().catch(() => ({}))
-        setError(data.error || "Failed to scan local network.")
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to scan local network.");
       }
-    } catch (err) {
-      setError("Error scanning local network.")
+    } catch {
+      setError("Error scanning local network.");
     } finally {
-      setIsScanning(false)
+      setIsScanning(false);
     }
-  }
+  };
 
   const handleSelectServer = (ip: string) => {
-    setServerUrl(`http://${ip}:3923`)
-  }
+    setServerUrl(`http://${ip}:3923`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
     try {
       const resp = await fetch("/api/action?op=login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ serverUrl: serverUrl.trim(), password }),
-      })
+      });
 
       if (resp.ok) {
-        onLogin(serverUrl.trim())
+        onLogin(serverUrl.trim());
       } else if (resp.status === 401) {
-        setError("Authentication failed. Please check your password.")
+        setError("Authentication failed. Please check your password.");
       } else if (resp.status === 403) {
-        setError("Access denied. Your account lacks permissions.")
+        setError("Access denied. Your account lacks permissions.");
       } else {
-        const data = await resp.json().catch(() => null)
-        setError(data?.error || `Failed to connect (status ${resp.status}).`)
+        const data = await resp.json().catch(() => null);
+        setError(data?.error || `Failed to connect (status ${resp.status}).`);
       }
-    } catch (err) {
-      setError("Invalid server URL or network issue. Ensure HTTPS is available.")
+    } catch {
+      setError(
+        "Invalid server URL or network issue. Ensure HTTPS is available.",
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center safe-px safe-pt safe-pb p-3 sm:p-4">
@@ -86,7 +101,9 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             <div className="p-2 rounded-lg bg-primary/10">
               <FolderIcon className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-xl sm:text-2xl font-semibold">Cool CopyParty 🏆</CardTitle>
+            <CardTitle className="text-xl sm:text-2xl font-semibold">
+              Cool CopyParty 🏆
+            </CardTitle>
           </div>
           <CardDescription className="text-muted-foreground">
             Connect to your file server to manage files and folders
@@ -136,7 +153,9 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 <div className="mt-2 text-sm border rounded-md overflow-hidden bg-muted/30">
                   <div className="bg-muted px-3 py-1.5 text-xs font-semibold flex items-center justify-between">
                     <span>Local Servers Found</span>
-                    <span className="text-muted-foreground">{scannedServers.length}</span>
+                    <span className="text-muted-foreground">
+                      {scannedServers.length}
+                    </span>
                   </div>
                   {scannedServers.length > 0 ? (
                     <ul className="divide-y max-h-32 overflow-y-auto">
@@ -175,13 +194,21 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                 className="bg-background"
               />
             </div>
-            {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>}
-            <Button type="submit" className="w-full h-10 sm:h-11" disabled={isLoading}>
+            {error && (
+              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                {error}
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full h-10 sm:h-11"
+              disabled={isLoading}
+            >
               {isLoading ? "Connecting..." : "Connect"}
             </Button>
           </form>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -51,7 +51,7 @@ self.addEventListener("fetch", (event) => {
           if (cached) return cached;
           const offline = await caches.match(OFFLINE_URL);
           return offline || new Response("You are offline", { status: 503 });
-        })
+        }),
     );
     return;
   }
@@ -67,6 +67,6 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => caches.match(OFFLINE_URL));
-    })
+    }),
   );
 });

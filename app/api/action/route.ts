@@ -1,134 +1,186 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { encrypt, generateCookieExpiration, decrypt } from "@/lib/crypto"
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { decrypt, encrypt, generateCookieExpiration } from "@/lib/crypto";
 
-export const runtime = "nodejs"
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-const COOKIE_NAME = "copyparty_auth"
+const COOKIE_NAME = "copyparty_auth";
 
 function isSecure(req: NextRequest): boolean {
-  const proto = req.headers.get("x-forwarded-proto")
-  if (proto) return proto === "https"
-  return process.env.NODE_ENV === "production"
+  const proto = req.headers.get("x-forwarded-proto");
+  if (proto) return proto === "https";
+  return process.env.NODE_ENV === "production";
 }
 
 function appendPwToUrl(url: string, pw: string): string {
-  const hasQuery = url.includes("?")
-  const sep = hasQuery ? "&" : "?"
-  return `${url}${sep}pw=${encodeURIComponent(pw)}`
+  const hasQuery = url.includes("?");
+  const sep = hasQuery ? "&" : "?";
+  return `${url}${sep}pw=${encodeURIComponent(pw)}`;
 }
 
 async function proxyJson(url: string): Promise<Response> {
-  const resp = await fetch(url, { method: "GET" })
-  const contentType = resp.headers.get("content-type") || ""
+  const resp = await fetch(url, { method: "GET" });
+  const contentType = resp.headers.get("content-type") || "";
   if (!resp.ok) {
-    return NextResponse.json({ error: resp.statusText }, { status: resp.status, headers: { "Cache-Control": "no-store, max-age=0" } })
+    return NextResponse.json(
+      { error: resp.statusText },
+      {
+        status: resp.status,
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      },
+    );
   }
   if (contentType.includes("application/json")) {
-    const data = await resp.json()
-    return NextResponse.json(data, { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } })
+    const data = await resp.json();
+    return NextResponse.json(data, {
+      status: 200,
+      headers: { "Cache-Control": "no-store, max-age=0" },
+    });
   } else {
-    const text = await resp.text()
-    return NextResponse.json({ data: text }, { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } })
+    const text = await resp.text();
+    return NextResponse.json(
+      { data: text },
+      { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   }
 }
 
 function getDecryptedPw(req: NextRequest): string | null {
-  const enc = req.headers.get("x-auth-cookie") || req.cookies.get(COOKIE_NAME)?.value || null
-  if (!enc) return null
-  return decrypt(enc)
+  const enc =
+    req.headers.get("x-auth-cookie") ||
+    req.cookies.get(COOKIE_NAME)?.value ||
+    null;
+  if (!enc) return null;
+  return decrypt(enc);
 }
 
 function isDemoMode(serverUrl: string | null): boolean {
-  return serverUrl?.startsWith("demo://") || false
+  return serverUrl?.startsWith("demo://") || false;
 }
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const op = searchParams.get("op") || "ls"
-  const serverUrl = searchParams.get("serverUrl")
-  const path = searchParams.get("path") || "/"
+  const { searchParams } = new URL(req.url);
+  const op = searchParams.get("op") || "ls";
+  const serverUrl = searchParams.get("serverUrl");
+  const path = searchParams.get("path") || "/";
 
   // Check for demo mode first
   if (isDemoMode(serverUrl)) {
-    return NextResponse.json({ error: "Operation not allowed in demo mode" }, { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } })
+    return NextResponse.json(
+      { error: "Operation not allowed in demo mode" },
+      { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   }
 
-  const pw = getDecryptedPw(req)
-  if (!serverUrl) return NextResponse.json({ error: "Missing serverUrl" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } })
-  if (!pw) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } })
+  const pw = getDecryptedPw(req);
+  if (!serverUrl)
+    return NextResponse.json(
+      { error: "Missing serverUrl" },
+      { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  if (!pw)
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
 
   if (op === "ls") {
-    const url = appendPwToUrl(`${serverUrl}${path}?ls`, pw)
-    return proxyJson(url)
+    const url = appendPwToUrl(`${serverUrl}${path}?ls`, pw);
+    return proxyJson(url);
   }
 
   // New: direct file proxy with optional download or cache
   if (op === "file") {
-    const wantCache = searchParams.get("cache") === "1"
-    const wantDownload = searchParams.get("download") === "1"
+    const wantCache = searchParams.get("cache") === "1";
+    const wantDownload = searchParams.get("download") === "1";
+    const range = req.headers.get("range");
 
-    let targetUrl = `${serverUrl}${path}`
+    let targetUrl = `${serverUrl}${path}`;
     if (wantDownload) {
-      targetUrl += targetUrl.includes("?") ? "&dl" : "?dl"
+      targetUrl += targetUrl.includes("?") ? "&dl" : "?dl";
     }
     if (wantCache) {
-      targetUrl += targetUrl.includes("?") ? "&cache" : "?cache"
+      targetUrl += targetUrl.includes("?") ? "&cache" : "?cache";
     }
 
-    const url = appendPwToUrl(targetUrl, pw)
-    const upstream = await fetch(url, { method: "GET" })
-    const res = new NextResponse(upstream.body, { status: upstream.status, headers: upstream.headers })
+    const url = appendPwToUrl(targetUrl, pw);
+    const upstream = await fetch(url, {
+      method: "GET",
+      headers: range ? { Range: range } : undefined,
+    });
+
+    const res = new NextResponse(upstream.body, {
+      status: upstream.status,
+      headers: upstream.headers,
+    });
+
     // Cache control: cache images (when cache=1), otherwise disable caching
     if (wantCache) {
-      res.headers.set("Cache-Control", "public, max-age=604800, immutable")
+      res.headers.set("Cache-Control", "public, max-age=604800, immutable");
     } else {
-      res.headers.set("Cache-Control", "no-store, max-age=0")
+      res.headers.set("Cache-Control", "no-store, max-age=0");
     }
-    return res
+    return res;
   }
 
   // Fallback: just proxy GET to a path
-  const url = appendPwToUrl(`${serverUrl}${path}`, pw)
-  const upstream = await fetch(url, { method: "GET", cache: "no-store" })
-  const res = new NextResponse(upstream.body, { status: upstream.status, headers: upstream.headers })
-  res.headers.set("Cache-Control", "no-store, max-age=0")
-  return res
+  const url = appendPwToUrl(`${serverUrl}${path}`, pw);
+  const upstream = await fetch(url, { method: "GET", cache: "no-store" });
+  const res = new NextResponse(upstream.body, {
+    status: upstream.status,
+    headers: upstream.headers,
+  });
+  res.headers.set("Cache-Control", "no-store, max-age=0");
+  return res;
 }
 
 export async function POST(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const op = searchParams.get("op") || "upload"
-  const serverUrl = searchParams.get("serverUrl")
+  const { searchParams } = new URL(req.url);
+  const op = searchParams.get("op") || "upload";
+  const serverUrl = searchParams.get("serverUrl");
 
   // Check for demo mode first
   if (isDemoMode(serverUrl)) {
     // Block all operations in demo mode
-    return NextResponse.json({ error: "Operation not allowed in demo mode" }, { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } })
+    return NextResponse.json(
+      { error: "Operation not allowed in demo mode" },
+      { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   }
 
   if (op === "login") {
-    const body = await req.json()
-    const serverUrl: string | undefined = body?.serverUrl
-    const username: string | undefined = body?.username
-    const password: string | undefined = body?.password
+    const body = await req.json();
+    const serverUrl: string | undefined = body?.serverUrl;
+    const username: string | undefined = body?.username;
+    const password: string | undefined = body?.password;
 
     if (!serverUrl || !password) {
-      return NextResponse.json({ error: "Missing serverUrl or password" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } })
+      return NextResponse.json(
+        { error: "Missing serverUrl or password" },
+        { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
     }
 
-    const testUrl = appendPwToUrl(`${serverUrl}?ls`, password)
-    const resp = await fetch(testUrl)
+    const testUrl = appendPwToUrl(`${serverUrl}?ls`, password);
+    const resp = await fetch(testUrl);
     if (!resp.ok) {
-      const status = resp.status
-      const msg = status === 401 ? "Authentication failed" : status === 403 ? "Access denied" : "Connection failed"
-      return NextResponse.json({ error: msg }, { status, headers: { "Cache-Control": "no-store, max-age=0" } })
+      const status = resp.status;
+      const msg =
+        status === 401
+          ? "Authentication failed"
+          : status === 403
+            ? "Access denied"
+            : "Connection failed";
+      return NextResponse.json(
+        { error: msg },
+        { status, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
     }
 
-    const enc = encrypt(password)
-    const res = NextResponse.json({ ok: true, username }, { status: 200 })
+    const enc = encrypt(password);
+    const res = NextResponse.json({ ok: true, username }, { status: 200 });
     res.cookies.set({
       name: COOKIE_NAME,
       value: enc,
@@ -137,22 +189,30 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       expires: generateCookieExpiration(8), // 8 hours session
       path: "/",
-    })
-    res.headers.set("Cache-Control", "no-store, max-age=0")
-    return res
+    });
+    res.headers.set("Cache-Control", "no-store, max-age=0");
+    return res;
   }
 
   if (op === "upload") {
-    const serverUrl = searchParams.get("serverUrl")
-    const path = searchParams.get("path") || "/"
-    const pw = getDecryptedPw(req)
+    const serverUrl = searchParams.get("serverUrl");
+    const path = searchParams.get("path") || "/";
+    const pw = getDecryptedPw(req);
 
-    if (!serverUrl) return NextResponse.json({ error: "Missing serverUrl" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } })
-    if (!pw) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } })
+    if (!serverUrl)
+      return NextResponse.json(
+        { error: "Missing serverUrl" },
+        { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
+    if (!pw)
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
 
     // Stream the original multipart body directly to the upstream to avoid truncation
-    const uploadUrl = appendPwToUrl(`${serverUrl}${path}`, pw)
-    const contentType = req.headers.get("content-type") || undefined
+    const uploadUrl = appendPwToUrl(`${serverUrl}${path}`, pw);
+    const contentType = req.headers.get("content-type") || undefined;
 
     const upstreamResp = await fetch(uploadUrl, {
       method: "POST",
@@ -161,50 +221,89 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
       // @ts-expect-error Node fetch requires duplex for streamed bodies
       duplex: "half",
-    })
+    });
 
     if (!upstreamResp.ok) {
-      return NextResponse.json({ error: upstreamResp.statusText }, { status: upstreamResp.status, headers: { "Cache-Control": "no-store, max-age=0" } })
+      return NextResponse.json(
+        { error: upstreamResp.statusText },
+        {
+          status: upstreamResp.status,
+          headers: { "Cache-Control": "no-store, max-age=0" },
+        },
+      );
     }
 
-    const text = await upstreamResp.text()
-    return NextResponse.json({ ok: true, response: text }, { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } })
+    const text = await upstreamResp.text();
+    return NextResponse.json(
+      { ok: true, response: text },
+      { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   }
 
   // Move/Rename
   if (op === "move" || op === "copy") {
-    const serverUrl = searchParams.get("serverUrl")
-    const path = searchParams.get("path") || "/"
-    const dest = searchParams.get("dest") || ""
-    const pw = getDecryptedPw(req)
+    const serverUrl = searchParams.get("serverUrl");
+    const path = searchParams.get("path") || "/";
+    const dest = searchParams.get("dest") || "";
+    const pw = getDecryptedPw(req);
 
-    if (!serverUrl) return NextResponse.json({ error: "Missing serverUrl" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } })
-    if (!pw) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } })
-    if (!dest) return NextResponse.json({ error: "Missing dest" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } })
+    if (!serverUrl)
+      return NextResponse.json(
+        { error: "Missing serverUrl" },
+        { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
+    if (!pw)
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
+    if (!dest)
+      return NextResponse.json(
+        { error: "Missing dest" },
+        { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
 
     // Upstream expects POST with ?move=/new/path or ?copy=/new/path on the source URL
-    const actionParam = op === "move" ? "move" : "copy"
-    const upstreamUrl = appendPwToUrl(`${serverUrl}${path}?${actionParam}=${encodeURIComponent(dest)}`, pw)
-    const upstreamResp = await fetch(upstreamUrl, { method: "POST", cache: "no-store" })
+    const actionParam = op === "move" ? "move" : "copy";
+    const upstreamUrl = appendPwToUrl(
+      `${serverUrl}${path}?${actionParam}=${encodeURIComponent(dest)}`,
+      pw,
+    );
+    const upstreamResp = await fetch(upstreamUrl, {
+      method: "POST",
+      cache: "no-store",
+    });
 
     if (!upstreamResp.ok) {
-      return NextResponse.json({ error: upstreamResp.statusText }, { status: upstreamResp.status, headers: { "Cache-Control": "no-store, max-age=0" } })
+      return NextResponse.json(
+        { error: upstreamResp.statusText },
+        {
+          status: upstreamResp.status,
+          headers: { "Cache-Control": "no-store, max-age=0" },
+        },
+      );
     }
 
-    const text = await upstreamResp.text()
-    return NextResponse.json({ ok: true, response: text }, { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } })
+    const text = await upstreamResp.text();
+    return NextResponse.json(
+      { ok: true, response: text },
+      { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   }
 
-  return NextResponse.json({ error: "Unsupported POST operation" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } })
+  return NextResponse.json(
+    { error: "Unsupported POST operation" },
+    { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+  );
 }
 
 export async function DELETE(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const op = searchParams.get("op") || "delete"
-  const serverUrl = searchParams.get("serverUrl")
+  const { searchParams } = new URL(req.url);
+  const op = searchParams.get("op") || "delete";
+  const serverUrl = searchParams.get("serverUrl");
 
   if (op === "logout") {
-    const res = NextResponse.json({ ok: true }, { status: 200 })
+    const res = NextResponse.json({ ok: true }, { status: 200 });
     res.cookies.set({
       name: COOKIE_NAME,
       value: "",
@@ -213,16 +312,16 @@ export async function DELETE(req: NextRequest) {
       sameSite: "lax",
       expires: new Date(0),
       path: "/",
-    })
-    res.headers.set("Cache-Control", "no-store, max-age=0")
-    return res
+    });
+    res.headers.set("Cache-Control", "no-store, max-age=0");
+    return res;
   }
 
   // Check for demo mode
   if (isDemoMode(serverUrl)) {
     // Block all operations in demo mode except logout
     if (op === "logout") {
-      const res = NextResponse.json({ ok: true }, { status: 200 })
+      const res = NextResponse.json({ ok: true }, { status: 200 });
       res.cookies.set({
         name: COOKIE_NAME,
         value: "",
@@ -231,26 +330,46 @@ export async function DELETE(req: NextRequest) {
         sameSite: "lax",
         expires: new Date(0),
         path: "/",
-      })
-      res.headers.set("Cache-Control", "no-store, max-age=0")
-      return res
+      });
+      res.headers.set("Cache-Control", "no-store, max-age=0");
+      return res;
     } else {
-      return NextResponse.json({ error: "Operation not allowed in demo mode" }, { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } })
+      return NextResponse.json(
+        { error: "Operation not allowed in demo mode" },
+        { status: 403, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
     }
   }
 
-  const path = searchParams.get("path") || "/"
-  const pw = getDecryptedPw(req)
+  const path = searchParams.get("path") || "/";
+  const pw = getDecryptedPw(req);
 
-  if (!serverUrl) return NextResponse.json({ error: "Missing serverUrl" }, { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } })
-  if (!pw) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } })
+  if (!serverUrl)
+    return NextResponse.json(
+      { error: "Missing serverUrl" },
+      { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  if (!pw)
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
 
-  const deleteUrl = appendPwToUrl(`${serverUrl}${path}`, pw)
-  const upstreamResp = await fetch(deleteUrl, { method: "DELETE" })
+  const deleteUrl = appendPwToUrl(`${serverUrl}${path}`, pw);
+  const upstreamResp = await fetch(deleteUrl, { method: "DELETE" });
 
   if (!upstreamResp.ok) {
-    return NextResponse.json({ error: upstreamResp.statusText }, { status: upstreamResp.status, headers: { "Cache-Control": "no-store, max-age=0" } })
+    return NextResponse.json(
+      { error: upstreamResp.statusText },
+      {
+        status: upstreamResp.status,
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      },
+    );
   }
 
-  return NextResponse.json({ ok: true }, { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } })
+  return NextResponse.json(
+    { ok: true },
+    { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } },
+  );
 }

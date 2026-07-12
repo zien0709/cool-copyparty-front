@@ -1,55 +1,117 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { FolderIcon, UploadIcon, LogOutIcon, SearchIcon, GridIcon, ListIcon, RefreshCwIcon, FolderPlusIcon } from "lucide-react"
-import { FileList } from "@/components/file-list"
-import { FileGrid } from "@/components/file-grid"
-import { FileUpload } from "@/components/file-upload"
-import { Breadcrumbs } from "@/components/breadcrumbs"
-import type { CopyPartyResponse, FileItem, DirItem } from "@/types/copyparty"
+import {
+  FolderIcon,
+  FolderPlusIcon,
+  GridIcon,
+  ListIcon,
+  LogOutIcon,
+  RefreshCwIcon,
+  SearchIcon,
+  UploadIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { FileGrid } from "@/components/file-grid";
+import { FileList } from "@/components/file-list";
+import { FileUpload } from "@/components/file-upload";
+import { MediaViewer } from "@/components/media-viewer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { CopyPartyResponse, DirItem, FileItem } from "@/types/copyparty";
 
 interface FileManagerProps {
-  serverUrl: string
-  onLogout: () => void
-  initialData?: CopyPartyResponse
+  serverUrl: string;
+  onLogout: () => void;
+  initialData?: CopyPartyResponse;
 }
 
-export function FileManager({ serverUrl, onLogout, initialData }: FileManagerProps) {
-  const [currentPath, setCurrentPath] = useState("/")
-  const [data, setData] = useState<CopyPartyResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [searchQuery, setSearchQuery] = useState("")
+export function FileManager({
+  serverUrl,
+  onLogout,
+  initialData,
+}: FileManagerProps) {
+  const [currentPath, setCurrentPath] = useState("/");
+  const [data, setData] = useState<CopyPartyResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
     if (typeof window !== "undefined" && window.localStorage) {
       try {
-        return (localStorage.getItem("viewMode") as "grid" | "list") || "list"
-      } catch (e) {
-        return "list"
+        return (localStorage.getItem("viewMode") as "grid" | "list") || "list";
+      } catch {
+        return "list";
       }
     }
-    return "list"
-  })
-  const [showUpload, setShowUpload] = useState(false)
-  const [mkdirName, setMkdirName] = useState("")
+    return "list";
+  });
+  const [showUpload, setShowUpload] = useState(false);
+  const [mkdirName, setMkdirName] = useState("");
+  const [viewingFile, setViewingFile] = useState<FileItem | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+
   const imageExts = new Set<string>([
-    "png","jpg","jpeg","gif","webp","bmp","svg","ico","avif","heic","heif","tif","tiff","jfif"
-  ])
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "svg",
+    "ico",
+    "avif",
+    "heic",
+    "heif",
+    "tif",
+    "tiff",
+    "jfif",
+  ]);
+  const videoExts = new Set<string>([
+    "mp4",
+    "webm",
+    "mov",
+    "avi",
+    "mkv",
+    "m4v",
+    "flv",
+    "ogv",
+  ]);
+  const audioExts = new Set<string>([
+    "mp3",
+    "wav",
+    "ogg",
+    "flac",
+    "m4a",
+    "opus",
+  ]);
+  const textExts = new Set<string>([
+    "txt",
+    "md",
+    "json",
+    "xml",
+    "csv",
+    "log",
+    "js",
+    "ts",
+    "tsx",
+    "html",
+    "css",
+  ]);
 
   const handleViewModeChange = (mode: "grid" | "list") => {
-    setViewMode(mode)
-    localStorage.setItem("viewMode", mode)
-  }
+    setViewMode(mode);
+    localStorage.setItem("viewMode", mode);
+  };
 
-  const isDemo = serverUrl.startsWith("demo://")
-  const hasWritePermission = data?.perms.includes("write") || false
-  const hasDeletePermission = data?.perms.includes("delete") || false
+  const isDemo = serverUrl.startsWith("demo://");
+  const hasWritePermission = data?.perms.includes("write") || false;
+  const hasDeletePermission = data?.perms.includes("delete") || false;
 
-  const fetchDirectory = async (path: string) => {
-    setIsLoading(true)
-    setError("")
+  const fetchDirectory = useCallback(async (path: string) => {
+    setIsLoading(true);
+    setError("");
 
     if (isDemo) {
       // Use provided initial data for demo mode; stay on root for simplicity
@@ -77,211 +139,273 @@ export function FileManager({ serverUrl, onLogout, initialData }: FileManagerPro
         },
         logues: [],
         readmes: [],
-      }
-      setData(demo)
-      setIsLoading(false)
-      return
+      };
+      setData(demo);
+      setIsLoading(false);
+      return;
     }
 
     try {
-      const params = new URLSearchParams({ op: "ls", serverUrl, path })
+      const params = new URLSearchParams({ op: "ls", serverUrl, path });
       // cache-busting
-      params.set("_", Date.now().toString())
-      const response = await fetch(`/api/action?${params.toString()}`, { cache: "no-store" })
+      params.set("_", Date.now().toString());
+      const response = await fetch(`/api/action?${params.toString()}`, {
+        cache: "no-store",
+      });
 
       if (!response.ok) {
-        if (response.status === 401) throw new Error("Authentication failed")
-        if (response.status === 403) throw new Error("Access denied")
-        throw new Error("Failed to fetch directory")
+        if (response.status === 401) throw new Error("Authentication failed");
+        if (response.status === 403) throw new Error("Access denied");
+        throw new Error("Failed to fetch directory");
       }
 
-      const jsonData: CopyPartyResponse = await response.json()
-      setData(jsonData)
+      const jsonData: CopyPartyResponse = await response.json();
+      setData(jsonData);
     } catch (err: unknown) {
       const msg =
-        (err as {message?: string})?.message === "Authentication failed"
+        (err as { message?: string })?.message === "Authentication failed"
           ? "Authentication failed. Please log in again."
-          : (err as {message?: string})?.message === "Access denied"
+          : (err as { message?: string })?.message === "Access denied"
             ? "Access denied. Your account lacks permissions."
-            : "Failed to load directory. Please try again."
-      setError(msg)
-      if ((err as {message?: string})?.message === "Authentication failed") {
-        onLogout()
+            : "Failed to load directory. Please try again.";
+      setError(msg);
+      if ((err as { message?: string })?.message === "Authentication failed") {
+        onLogout();
       }
-      console.error(err)
+      console.error(err);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  }, [initialData, isDemo, onLogout, serverUrl]);
 
   useEffect(() => {
-    fetchDirectory(currentPath)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverUrl])
+    void fetchDirectory(currentPath);
+  }, [currentPath, fetchDirectory]);
 
   const handleNavigate = (path: string) => {
-    setCurrentPath(path)
-    fetchDirectory(path)
-  }
+    setCurrentPath(path);
+  };
 
   const handleRefresh = () => {
-    fetchDirectory(currentPath)
-  }
+    fetchDirectory(currentPath);
+  };
 
-  const handleDownload = async (file: FileItem) => {
+  const handleDownload = async (file: FileItem, forceDownload = false) => {
     if (isDemo) {
-      alert("Demo mode: downloads are disabled.")
-      return
+      alert("Demo mode: downloads are disabled.");
+      return;
     }
-    const path = `${currentPath}${file.href}`
-    if (imageExts.has(file.ext.toLowerCase())) {
-      const params = new URLSearchParams({ op: "file", serverUrl, path, cache: "1" })
-      const url = `/api/action?${params.toString()}`
-      window.open(url, "_blank", "noopener")
-      return
+
+    const ext = file.ext.toLowerCase();
+    const isPreviewable =
+      imageExts.has(ext) ||
+      videoExts.has(ext) ||
+      audioExts.has(ext) ||
+      textExts.has(ext);
+
+    if (isPreviewable && !forceDownload) {
+      setViewingFile(file);
+      return;
     }
-  
-    const params = new URLSearchParams({ op: "file", serverUrl, path, download: "1" })
-    const url = `/api/action?${params.toString()}`
-    const a = document.createElement("a")
-    a.href = url
+
+    const path = `${currentPath}${file.href}`;
+    if (imageExts.has(file.ext.toLowerCase()) && !forceDownload) {
+      const params = new URLSearchParams({
+        op: "file",
+        serverUrl,
+        path,
+        cache: "1",
+      });
+      const url = `/api/action?${params.toString()}`;
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      op: "file",
+      serverUrl,
+      path,
+      download: "1",
+    });
+    const url = `/api/action?${params.toString()}`;
+    const a = document.createElement("a");
+    a.href = url;
     // do not set a.download; rely on server Content-Disposition
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  }
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (isDemo) {
+      alert("Demo mode: uploads are disabled.");
+      return;
+    }
+    if (e.dataTransfer.files?.[0]) {
+      setDroppedFiles(Array.from(e.dataTransfer.files));
+      setShowUpload(true);
+    }
+  };
 
   const handleDelete = async (item: FileItem | DirItem) => {
     if (isDemo) {
-      alert("Demo mode: delete is disabled.")
-      return
+      alert("Demo mode: delete is disabled.");
+      return;
     }
     if (!confirm(`Are you sure you want to delete ${item.href}?`)) {
-      return
+      return;
     }
 
     try {
-      const params = new URLSearchParams({ serverUrl, path: `${currentPath}${item.href}` })
-      params.set("_", Date.now().toString())
+      const params = new URLSearchParams({
+        serverUrl,
+        path: `${currentPath}${item.href}`,
+      });
+      params.set("_", Date.now().toString());
       const response = await fetch(`/api/action?${params.toString()}`, {
         method: "DELETE",
         cache: "no-store",
-      })
+      });
 
       if (response.ok) {
-        handleRefresh()
+        handleRefresh();
       } else if (response.status === 401) {
-        setError("Authentication failed. Please log in again.")
-        onLogout()
+        setError("Authentication failed. Please log in again.");
+        onLogout();
       } else {
-        alert("Failed to delete item")
+        alert("Failed to delete item");
       }
     } catch (err) {
-      alert("Failed to delete item")
-      console.error(err)
+      alert("Failed to delete item");
+      console.error(err);
     }
-  }
+  };
 
   const handleMkdir = async () => {
     if (isDemo) {
-      alert("Demo mode: creating folders is disabled.")
-      return
+      alert("Demo mode: creating folders is disabled.");
+      return;
     }
-    const name = mkdirName.trim()
-    if (!name) return
+    const name = mkdirName.trim();
+    if (!name) return;
 
     try {
-      const params = new URLSearchParams({ op: "upload", serverUrl, path: currentPath })
-      const form = new FormData()
-      form.append("act", "mkdir")
-      form.append("name", name)
+      const params = new URLSearchParams({
+        op: "upload",
+        serverUrl,
+        path: currentPath,
+      });
+      const form = new FormData();
+      form.append("act", "mkdir");
+      form.append("name", name);
 
       const response = await fetch(`/api/action?${params.toString()}`, {
         method: "POST",
         body: form,
         cache: "no-store",
-      })
+      });
 
       if (!response.ok) {
-        if (response.status === 401) throw new Error("Authentication failed")
-        if (response.status === 403) throw new Error("Access denied")
-        throw new Error("Failed to create directory")
+        if (response.status === 401) throw new Error("Authentication failed");
+        if (response.status === 403) throw new Error("Access denied");
+        throw new Error("Failed to create directory");
       }
 
-      setMkdirName("")
-      handleRefresh()
+      setMkdirName("");
+      handleRefresh();
     } catch (err: unknown) {
       const msg =
-        (err as {message?: string})?.message === "Authentication failed"
+        (err as { message?: string })?.message === "Authentication failed"
           ? "Authentication failed. Please log in again."
-          : (err as {message?: string})?.message === "Access denied"
+          : (err as { message?: string })?.message === "Access denied"
             ? "Access denied. Your account lacks permissions."
-            : "Failed to create directory. Please try again."
-      setError(msg)
-      if ((err as {message?: string})?.message === "Authentication failed") {
-        onLogout()
+            : "Failed to create directory. Please try again.";
+      setError(msg);
+      if ((err as { message?: string })?.message === "Authentication failed") {
+        onLogout();
       }
-      console.error(err)
+      console.error(err);
     }
-  }
+  };
 
-  const handleRename = async (item: FileItem | DirItem, newBaseName: string) => {
+  const handleRename = async (
+    item: FileItem | DirItem,
+    newBaseName: string,
+  ) => {
     if (isDemo) {
-      alert("Demo mode: rename is disabled.")
-      return
+      alert("Demo mode: rename is disabled.");
+      return;
     }
 
-    const safeName = newBaseName.trim()
-    if (!safeName) return
+    const safeName = newBaseName.trim();
+    if (!safeName) return;
 
     // Detect dir by trailing slash in href
-    const isDir = item.href.endsWith("/")
+    const isDir = item.href.endsWith("/");
 
     // Preserve extension for files; ensure trailing slash for dirs
-    let newHref = safeName
+    let newHref = safeName;
     if (!isDir) {
-      const ext = (item as FileItem).ext
+      const ext = (item as FileItem).ext;
       if (ext) {
         // Avoid double dots if user typed it
         if (safeName.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
-          newHref = safeName
+          newHref = safeName;
         } else {
-          newHref = `${safeName}.${ext}`
+          newHref = `${safeName}.${ext}`;
         }
       }
     } else {
       // remove any trailing slashes from input, ensure one trailing slash
-      newHref = safeName.replace(/\/+$/, "") + "/"
+      newHref = `${safeName.replace(/\/+$/, "")}/`;
     }
 
     try {
-      const params = new URLSearchParams({ op: "move", serverUrl, path: `${currentPath}${item.href}`, dest: `${currentPath}${newHref}` })
+      const params = new URLSearchParams({
+        op: "move",
+        serverUrl,
+        path: `${currentPath}${item.href}`,
+        dest: `${currentPath}${newHref}`,
+      });
       const response = await fetch(`/api/action?${params.toString()}`, {
         method: "POST",
         cache: "no-store",
-      })
+      });
 
       if (!response.ok) {
-        if (response.status === 401) throw new Error("Authentication failed")
-        if (response.status === 403) throw new Error("Access denied")
-        throw new Error("Failed to rename")
+        if (response.status === 401) throw new Error("Authentication failed");
+        if (response.status === 403) throw new Error("Access denied");
+        throw new Error("Failed to rename");
       }
 
-      handleRefresh()
+      handleRefresh();
     } catch (err: unknown) {
       const msg =
-        (err as {message?: string})?.message === "Authentication failed"
+        (err as { message?: string })?.message === "Authentication failed"
           ? "Authentication failed. Please log in again."
-          : (err as {message?: string})?.message === "Access denied"
+          : (err as { message?: string })?.message === "Access denied"
             ? "Access denied. Your account lacks permissions."
-            : "Failed to rename. Please try again."
-      setError(msg)
-      if ((err as {message?: string})?.message === "Authentication failed") {
-        onLogout()
+            : "Failed to rename. Please try again.";
+      setError(msg);
+      if ((err as { message?: string })?.message === "Authentication failed") {
+        onLogout();
       }
-      console.error(err)
+      console.error(err);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -293,35 +417,53 @@ export function FileManager({ serverUrl, onLogout, initialData }: FileManagerPro
               <div className="p-2 rounded-lg bg-primary/10">
                 <FolderIcon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
-              <h1 className="text-lg sm:text-xl font-semibold">Cool CopyParty</h1>
+              <h1 className="text-lg sm:text-xl font-semibold">
+                Cool CopyParty
+              </h1>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <Button variant="outline" onClick={handleRefresh} className="gap-2">
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                className="gap-2"
+              >
                 <RefreshCwIcon className="h-4 w-4" />
                 <span className="hidden sm:inline">Refresh</span>
               </Button>
-              <Button variant="destructive" onClick={onLogout} className="gap-2">
+              <Button
+                variant="destructive"
+                onClick={onLogout}
+                className="gap-2"
+              >
                 <LogOutIcon className="h-4 w-4" />
                 <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
         </div>
-
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 safe-px">
-        <Button variant="default" onClick={() => {
+      <main
+        className={`container mx-auto px-3 sm:px-4 py-4 sm:py-6 safe-px min-h-[calc(100vh-80px)] transition-colors relative ${dragActive ? "bg-primary/5 ring-2 ring-inset ring-primary" : ""}`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        <Button
+          variant="default"
+          onClick={() => {
             if (isDemo) {
               alert("Demo mode: uploads are disabled.");
               return;
             }
             setShowUpload(true);
           }}
-            className="cursor-pointer rounded-full gap-2 w-14 h-14 absolute
-            right-10 bottom-10 shadow-md"
-            disabled={isDemo}>
+          className="cursor-pointer rounded-full gap-2 w-14 h-14 fixed
+            right-10 bottom-10 shadow-md z-20"
+          disabled={isDemo}
+        >
           <UploadIcon className="h-5 w-5 sm:h-6 sm:w-6" />
         </Button>
         {/* Breadcrumbs and Actions */}
@@ -358,7 +500,7 @@ export function FileManager({ serverUrl, onLogout, initialData }: FileManagerPro
             </div>
           </div>
 
-          {(hasWritePermission && !isDemo) && (
+          {hasWritePermission && !isDemo && (
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Input
@@ -368,7 +510,11 @@ export function FileManager({ serverUrl, onLogout, initialData }: FileManagerPro
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={handleMkdir} className="gap-2" disabled={!mkdirName.trim()}>
+                <Button
+                  onClick={handleMkdir}
+                  className="gap-2"
+                  disabled={!mkdirName.trim()}
+                >
                   <FolderPlusIcon className="h-4 w-4" />
                   Create folder
                 </Button>
@@ -386,7 +532,13 @@ export function FileManager({ serverUrl, onLogout, initialData }: FileManagerPro
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={() => alert("Demo mode: creating folders is disabled.")} className="gap-2" disabled>
+                <Button
+                  onClick={() =>
+                    alert("Demo mode: creating folders is disabled.")
+                  }
+                  className="gap-2"
+                  disabled
+                >
                   <FolderPlusIcon className="h-4 w-4" />
                   Create folder
                 </Button>
@@ -397,33 +549,56 @@ export function FileManager({ serverUrl, onLogout, initialData }: FileManagerPro
 
         {/* File List */}
         <div className="space-y-4">
-          {isLoading && <div className="text-sm text-muted-foreground">Loading directory...</div>}
-          {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>}
-          {data && (
-            viewMode === "grid" ? (
+          {isLoading && (
+            <div className="text-sm text-muted-foreground">
+              Loading directory...
+            </div>
+          )}
+          {error && (
+            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+              {error}
+            </div>
+          )}
+          {data &&
+            (viewMode === "grid" ? (
               <FileGrid
-                dirs={data.dirs.filter((d) => d.href.toLowerCase().includes(searchQuery.toLowerCase()))}
-                files={data.files.filter((f) => f.href.toLowerCase().includes(searchQuery.toLowerCase()))}
+                dirs={data.dirs.filter((d) =>
+                  d.href.toLowerCase().includes(searchQuery.toLowerCase()),
+                )}
+                files={data.files.filter((f) =>
+                  f.href.toLowerCase().includes(searchQuery.toLowerCase()),
+                )}
                 onNavigate={(href: string) => handleNavigate(href)}
                 onDownload={handleDownload}
-                onDelete={hasDeletePermission && !isDemo ? handleDelete : undefined}
-                onRename={hasWritePermission && !isDemo ? handleRename : undefined}
+                onDelete={
+                  hasDeletePermission && !isDemo ? handleDelete : undefined
+                }
+                onRename={
+                  hasWritePermission && !isDemo ? handleRename : undefined
+                }
                 currentPath={currentPath}
                 serverUrl={serverUrl}
               />
             ) : (
               <FileList
-                dirs={data.dirs.filter((d) => d.href.toLowerCase().includes(searchQuery.toLowerCase()))}
-                files={data.files.filter((f) => f.href.toLowerCase().includes(searchQuery.toLowerCase()))}
+                dirs={data.dirs.filter((d) =>
+                  d.href.toLowerCase().includes(searchQuery.toLowerCase()),
+                )}
+                files={data.files.filter((f) =>
+                  f.href.toLowerCase().includes(searchQuery.toLowerCase()),
+                )}
                 onNavigate={(href: string) => handleNavigate(href)}
                 onDownload={handleDownload}
-                onDelete={hasDeletePermission && !isDemo ? handleDelete : undefined}
-                onRename={hasWritePermission && !isDemo ? handleRename : undefined}
+                onDelete={
+                  hasDeletePermission && !isDemo ? handleDelete : undefined
+                }
+                onRename={
+                  hasWritePermission && !isDemo ? handleRename : undefined
+                }
                 currentPath={currentPath}
                 serverUrl={serverUrl}
               />
-            )
-          )}
+            ))}
         </div>
 
         {/* Upload Modal */}
@@ -431,14 +606,27 @@ export function FileManager({ serverUrl, onLogout, initialData }: FileManagerPro
           <FileUpload
             serverUrl={serverUrl}
             currentPath={currentPath}
+            initialFiles={droppedFiles}
             onUploadComplete={() => {
-              setShowUpload(false)
-              handleRefresh()
+              setShowUpload(false);
+              setDroppedFiles([]);
+              handleRefresh();
             }}
-            onClose={() => setShowUpload(false)}
+            onClose={() => {
+              setShowUpload(false);
+              setDroppedFiles([]);
+            }}
           />
         )}
+
+        <MediaViewer
+          file={viewingFile}
+          currentPath={currentPath}
+          serverUrl={serverUrl}
+          onClose={() => setViewingFile(null)}
+          onDownload={(file) => handleDownload(file, true)}
+        />
       </main>
     </div>
-  )
+  );
 }
