@@ -3,18 +3,22 @@ import { useEffect } from "react";
 
 export default function SWRegister() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      // Delay registration until page load so Next head tags are applied
-      const onLoad = () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((reg) => {
-            console.log("SW registered:", reg.scope);
-          })
-          .catch((err) => console.error("SW registration failed:", err));
-      };
-      if (document.readyState === "complete") onLoad();
-      else window.addEventListener("load", onLoad, { once: true });
+    if (!("serviceWorker" in navigator)) return;
+
+    // Remove workers and caches left by older versions of the app. The app
+    // should always use the network so updates are available immediately.
+    void navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        void registration.unregister();
+      }
+    });
+
+    if ("caches" in window) {
+      void caches.keys().then((keys) => {
+        for (const key of keys) {
+          void caches.delete(key);
+        }
+      });
     }
   }, []);
 

@@ -4,10 +4,13 @@ import {
   FolderIcon,
   FolderPlusIcon,
   GridIcon,
+  HardDriveIcon,
   ListIcon,
   LogOutIcon,
   RefreshCwIcon,
   SearchIcon,
+  ShieldCheckIcon,
+  ServerIcon,
   UploadIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -407,45 +410,38 @@ export function FileManager({
     }
   };
 
+  const visibleDirs = data?.dirs.filter((d) =>
+    d.href.toLowerCase().includes(searchQuery.toLowerCase()),
+  ) ?? [];
+  const visibleFiles = data?.files.filter((f) =>
+    f.href.toLowerCase().includes(searchQuery.toLowerCase()),
+  ) ?? [];
+  const itemCount = (data?.dirs.length ?? 0) + (data?.files.length ?? 0);
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/80 backdrop-blur safe-pt z-30">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <FolderIcon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-              </div>
-              <h1 className="text-lg sm:text-xl font-semibold">
-                Cool CopyParty
-              </h1>
+    <div className="min-h-screen bg-muted/30">
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-card/90 backdrop-blur safe-pt">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2"><FolderIcon className="h-5 w-5 text-primary" /></div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">Cool CopyParty</p>
+              <p className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex"><ServerIcon className="h-3 w-3" />{isDemo ? "Demo workspace" : serverUrl}</p>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button
-                variant="outline"
-                onClick={handleRefresh}
-                className="gap-2"
-              >
-                <RefreshCwIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={onLogout}
-                className="gap-2"
-              >
-                <LogOutIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </Button>
-            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2" aria-label="Refresh directory">
+              <RefreshCwIcon className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /><span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onLogout} className="gap-2 text-muted-foreground hover:text-foreground" aria-label="Log out">
+              <LogOutIcon className="h-4 w-4" /><span className="hidden sm:inline">Log out</span>
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main
-        className={`container mx-auto px-3 sm:px-4 py-4 sm:py-6 safe-px min-h-[calc(100vh-80px)] transition-colors relative ${dragActive ? "bg-primary/5 ring-2 ring-inset ring-primary" : ""}`}
+        className={`mx-auto min-h-[calc(100vh-64px)] max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 transition-colors relative ${dragActive ? "bg-primary/5 ring-2 ring-inset ring-primary" : ""}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -460,48 +456,69 @@ export function FileManager({
             }
             setShowUpload(true);
           }}
-          className="cursor-pointer rounded-full gap-2 w-14 h-14 fixed
-            right-10 bottom-10 shadow-md z-20"
+          className="fixed bottom-5 right-5 z-20 h-12 w-12 rounded-full p-0 shadow-lg sm:bottom-8 sm:right-8"
           disabled={isDemo}
+          aria-label="Upload files"
         >
-          <UploadIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+          <UploadIcon className="h-5 w-5" />
         </Button>
-        {/* Breadcrumbs and Actions */}
-        <div className="mb-6 space-y-4">
+
+        <div className="mb-5 flex flex-col gap-4 sm:mb-7 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-primary">File manager</p>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your workspace</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Browse and manage the files on your server.</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <ShieldCheckIcon className="h-4 w-4 text-emerald-600" /> Secure session
+          </div>
+        </div>
+
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-border/70 bg-card p-4"><div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">Items here</span><HardDriveIcon className="h-4 w-4 text-primary" /></div><p className="mt-2 text-xl font-semibold">{itemCount}</p></div>
+          <div className="rounded-xl border border-border/70 bg-card p-4"><div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">Folders</span><FolderIcon className="h-4 w-4 text-primary" /></div><p className="mt-2 text-xl font-semibold">{data?.dirs.length ?? "—"}</p></div>
+          <div className="hidden rounded-xl border border-border/70 bg-card p-4 sm:block"><div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">Permission</span><ShieldCheckIcon className="h-4 w-4 text-emerald-600" /></div><p className="mt-2 text-sm font-semibold capitalize">{data?.perms[0] ?? "Checking…"}</p></div>
+        </div>
+
+        <div className="mb-5 space-y-3">
           <Breadcrumbs path={currentPath} onNavigate={handleNavigate} />
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="rounded-xl border border-border/70 bg-card p-3 shadow-sm sm:p-4">
+            <div className="flex flex-col gap-3 lg:flex-row">
+              <div className="relative min-w-0 flex-1">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search files"
+                placeholder="Search this folder"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
-            </div>
-            <div className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2 lg:border-l lg:pl-3">
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
                 onClick={() => handleViewModeChange("grid")}
-                className="gap-2"
+                className="flex-1 gap-2 sm:flex-none"
+                aria-label="Grid view"
               >
                 <GridIcon className="h-4 w-4" />
-                Grid
+                <span className="hidden sm:inline">Grid</span>
               </Button>
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 onClick={() => handleViewModeChange("list")}
-                className="gap-2"
+                className="flex-1 gap-2 sm:flex-none"
+                aria-label="List view"
               >
                 <ListIcon className="h-4 w-4" />
-                List
+                <span className="hidden sm:inline">List</span>
               </Button>
+              </div>
             </div>
           </div>
 
           {hasWritePermission && !isDemo && (
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border bg-card/60 p-3 sm:flex-row">
               <div className="relative flex-1">
                 <Input
                   placeholder="New folder name"
@@ -521,53 +538,22 @@ export function FileManager({
               </div>
             </div>
           )}
-          {isDemo && (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Input
-                  placeholder="New folder name"
-                  value=""
-                  onChange={() => {}}
-                  disabled
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() =>
-                    alert("Demo mode: creating folders is disabled.")
-                  }
-                  className="gap-2"
-                  disabled
-                >
-                  <FolderPlusIcon className="h-4 w-4" />
-                  Create folder
-                </Button>
-              </div>
-            </div>
-          )}
+          {isDemo && <p className="text-xs text-muted-foreground">Demo mode is read-only. Connect to a server to create, rename, upload, or delete files.</p>}
         </div>
 
         {/* File List */}
         <div className="space-y-4">
-          {isLoading && (
-            <div className="text-sm text-muted-foreground">
-              Loading directory...
-            </div>
-          )}
+          {isLoading && <div className="rounded-xl border border-border/70 bg-card p-8 text-center text-sm text-muted-foreground">Loading directory…</div>}
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+            <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
               {error}
             </div>
           )}
-          {data &&
+          {data && !isLoading &&
             (viewMode === "grid" ? (
               <FileGrid
-                dirs={data.dirs.filter((d) =>
-                  d.href.toLowerCase().includes(searchQuery.toLowerCase()),
-                )}
-                files={data.files.filter((f) =>
-                  f.href.toLowerCase().includes(searchQuery.toLowerCase()),
-                )}
+                dirs={visibleDirs}
+                files={visibleFiles}
                 onNavigate={(href: string) => handleNavigate(href)}
                 onDownload={handleDownload}
                 onDelete={
@@ -581,12 +567,8 @@ export function FileManager({
               />
             ) : (
               <FileList
-                dirs={data.dirs.filter((d) =>
-                  d.href.toLowerCase().includes(searchQuery.toLowerCase()),
-                )}
-                files={data.files.filter((f) =>
-                  f.href.toLowerCase().includes(searchQuery.toLowerCase()),
-                )}
+                dirs={visibleDirs}
+                files={visibleFiles}
                 onNavigate={(href: string) => handleNavigate(href)}
                 onDownload={handleDownload}
                 onDelete={
