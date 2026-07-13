@@ -92,6 +92,30 @@ export async function GET(req: NextRequest) {
     return proxyJson(url);
   }
 
+  if (op === "metrics") {
+    const metricsUrl = `${serverUrl.replace(/\/+$/, "")}/.cpr/metrics`;
+    const upstream = await fetch(appendPwToUrl(metricsUrl, pw), {
+      method: "GET",
+      headers: { Accept: "text/plain; version=0.0.4" },
+      cache: "no-store",
+    });
+
+    if (!upstream.ok) {
+      return NextResponse.json(
+        { error: upstream.status === 403 ? "Admin access required" : upstream.statusText },
+        { status: upstream.status, headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
+    }
+
+    return new NextResponse(upstream.body, {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    });
+  }
+
   // New: direct file proxy with optional download or cache
   if (op === "file") {
     const wantCache = searchParams.get("cache") === "1";

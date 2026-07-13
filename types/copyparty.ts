@@ -18,6 +18,7 @@ export interface DirItem {
   sz: number;
   ext: string;
   ts: number;
+  perms?: string[] | string;
   tags: {
     ".files"?: number;
     [key: string]: any;

@@ -9,6 +9,7 @@ import {
   LogOutIcon,
   RefreshCwIcon,
   SearchIcon,
+  Settings2Icon,
   ShieldCheckIcon,
   ServerIcon,
   UploadIcon,
@@ -20,6 +21,13 @@ import { FileList } from "@/components/file-list";
 import { FileUpload } from "@/components/file-upload";
 import { MediaViewer } from "@/components/media-viewer";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import type { CopyPartyResponse, DirItem, FileItem } from "@/types/copyparty";
 
@@ -27,6 +35,64 @@ interface FileManagerProps {
   serverUrl: string;
   onLogout: () => void;
   initialData?: CopyPartyResponse;
+}
+
+interface ServerMetrics {
+  diskFree?: number;
+  diskSize?: number;
+  volumeBytes?: number;
+}
+
+function parseMetric(text: string, name: string): number | undefined {
+  const line = text
+    .split("\n")
+    .find((entry) => entry.startsWith(name) && !entry.startsWith(`${name}_`));
+  if (!line) return undefined;
+  const value = Number(line.slice(line.lastIndexOf(" ") + 1));
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function parseServerMetrics(text: string): ServerMetrics {
+  return {
+    diskFree: parseMetric(text, "cpp_disk_free_bytes"),
+    diskSize: parseMetric(text, "cpp_disk_size_bytes"),
+    volumeBytes: parseMetric(text, "cpp_vol_bytes{vpath=\"total\"}"),
+  };
+}
+
+function formatBytes(bytes: number | undefined): string {
+  if (bytes === undefined) return "Unavailable";
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${value.toFixed(1)} ${units[unit]}`;
+}
+
+function normalizePermissions(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (typeof value !== "string" || !value) return [];
+
+  const named = value.split(/[\s,]+/).filter(Boolean);
+  if (named.length > 1 || named[0].length > 1) return named;
+
+  const labels: Record<string, string> = {
+    r: "read",
+    w: "write",
+    m: "move",
+    d: "delete",
+    a: "admin",
+    A: "all",
+    ".": "dot",
+    g: "get",
+    G: "upget",
+    h: "html",
+  };
+  return [...value].map((permission) => labels[permission] ?? permission);
 }
 
 export function FileManager({
@@ -54,6 +120,10 @@ export function FileManager({
   const [viewingFile, setViewingFile] = useState<FileItem | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [metrics, setMetrics] = useState<ServerMetrics | null>(null);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
 
   const imageExts = new Set<string>([
     "png",
@@ -109,8 +179,41 @@ export function FileManager({
   };
 
   const isDemo = serverUrl.startsWith("demo://");
-  const hasWritePermission = data?.perms.includes("write") || false;
-  const hasDeletePermission = data?.perms.includes("delete") || false;
+  const currentPermissions = normalizePermissions(data?.perms);
+  const hasWritePermission = currentPermissions.includes("write");
+  const hasDeletePermission = currentPermissions.includes("delete");
+  const volumePermissions = (data?.dirs ?? [])
+    .map((dir) => ({
+      name: decodeURIComponent(dir.href.replace(/\/$/, "")),
+      perms: normalizePermissions(dir.perms),
+    }))
+    .filter((dir) => dir.perms.length > 0);
+
+  const openSettings = async () => {
+    setSettingsOpen(true);
+    setMetrics(null);
+    setMetricsError(null);
+    if (isDemo) return;
+
+    setIsLoadingMetrics(true);
+    try {
+      const params = new URLSearchParams({ op: "metrics", serverUrl });
+      const response = await fetch(`/api/action?${params.toString()}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || "Metrics are unavailable");
+      }
+      setMetrics(parseServerMetrics(await response.text()));
+    } catch (error) {
+      setMetricsError(
+        error instanceof Error ? error.message : "Metrics are unavailable",
+      );
+    } finally {
+      setIsLoadingMetrics(false);
+    }
+  };
 
   const fetchDirectory = useCallback(async (path: string) => {
     setIsLoading(true);
@@ -430,6 +533,9 @@ export function FileManager({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={openSettings} className="gap-2" aria-label="Open settings">
+              <Settings2Icon className="h-4 w-4" /><span className="hidden sm:inline">Settings</span>
+            </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2" aria-label="Refresh directory">
               <RefreshCwIcon className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} /><span className="hidden sm:inline">Refresh</span>
             </Button>
@@ -439,6 +545,62 @@ export function FileManager({
           </div>
         </div>
       </header>
+
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Workspace settings</DialogTitle>
+            <DialogDescription>
+              Account access and storage reported by Copyparty.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <section className="rounded-lg border p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Account</p>
+              <p className="mt-1 font-medium">{data?.acct || "Unknown account"}</p>
+              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Permissions in {currentPath}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {currentPermissions.length > 0 ? currentPermissions.map((permission) => (
+                  <span key={permission} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                    {permission}
+                  </span>
+                )) : volumePermissions.length > 0 ? (
+                  <div className="w-full space-y-2">
+                    <p className="text-sm text-muted-foreground">Select a volume to view its permissions:</p>
+                    {volumePermissions.map((volume) => (
+                      <div key={volume.name} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="truncate">/{volume.name}</span>
+                        <span className="text-right text-muted-foreground">{volume.perms.join(", ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <span className="text-sm text-muted-foreground">No permissions reported</span>}
+              </div>
+            </section>
+
+            <section className="rounded-lg border p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Storage</p>
+              {isDemo ? (
+                <p className="mt-2 text-sm text-muted-foreground">Storage metrics are unavailable in demo mode.</p>
+              ) : isLoadingMetrics ? (
+                <p className="mt-2 text-sm text-muted-foreground">Loading server metrics…</p>
+              ) : metricsError ? (
+                <div className="mt-2 space-y-2 text-sm text-muted-foreground">
+                  {data?.srvinf?.includes(" free of ") && <p>Copyparty reports: {data.srvinf}</p>}
+                  <p>{metricsError}. Detailed metrics require Copyparty <code>--stats</code> and an admin account.</p>
+                </div>
+              ) : (
+                <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div><dt className="text-muted-foreground">Free disk</dt><dd className="font-semibold">{formatBytes(metrics?.diskFree)}</dd></div>
+                  <div><dt className="text-muted-foreground">Total disk</dt><dd className="font-semibold">{formatBytes(metrics?.diskSize)}</dd></div>
+                  <div className="col-span-2"><dt className="text-muted-foreground">Files in volumes</dt><dd className="font-semibold">{formatBytes(metrics?.volumeBytes)}</dd></div>
+                </dl>
+              )}
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <main
         className={`mx-auto min-h-[calc(100vh-64px)] max-w-[1440px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 transition-colors relative ${dragActive ? "bg-primary/5 ring-2 ring-inset ring-primary" : ""}`}
