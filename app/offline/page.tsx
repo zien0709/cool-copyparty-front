@@ -1,4 +1,4 @@
-"use client"
+"use client";
 export const dynamic = "force-static";
 
 export default function OfflinePage() {
@@ -10,6 +10,7 @@ export default function OfflinePage() {
           This page is available offline. Try reconnecting to access live data.
         </p>
         <button
+          type="button"
           className="inline-flex items-center rounded-md border px-3 py-2 text-sm"
           onClick={() => window.location.reload()}
         >

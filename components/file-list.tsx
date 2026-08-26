@@ -1,101 +1,146 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
 import {
-  FolderIcon,
-  FileIcon,
   DownloadIcon,
-  TrashIcon,
-  ImageIcon,
+  FileArchiveIcon,
+  FileAudioIcon,
+  FileIcon,
   FileTextIcon,
   FileVideoIcon,
-  FileAudioIcon,
-  FileArchiveIcon,
+  FolderIcon,
+  ImageIcon,
+  MoreVerticalIcon,
   PencilIcon,
-} from "lucide-react"
-import type { FileItem, DirItem } from "@/types/copyparty"
+  TrashIcon,
+} from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import type { DirItem, FileItem } from "@/types/copyparty";
 
 interface FileListProps {
-  dirs: DirItem[]
-  files: FileItem[]
-  onNavigate: (path: string) => void
-  onDownload: (file: FileItem) => void
-  onDelete?: (item: FileItem | DirItem) => void
-  onRename?: (item: FileItem | DirItem, newBaseName: string) => void
-  currentPath: string
-  serverUrl: string
+  dirs: DirItem[];
+  files: FileItem[];
+  onNavigate: (path: string) => void;
+  onDownload: (file: FileItem) => void;
+  onDelete?: (item: FileItem | DirItem) => void;
+  onRename?: (item: FileItem | DirItem, newBaseName: string) => void;
+  currentPath: string;
+  serverUrl: string;
 }
 
 const imageExts = [
-    "jpg",
-    "jpeg",
-    "png",
-    "gif",
-    "webp",
-    "svg",
-    "bmp",
-    "ico",
-    "avif",
-    "heic",
-    "heif",
-    "tif",
-    "tiff",
-    "jfif",
-  ]
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "svg",
+  "bmp",
+  "ico",
+  "avif",
+  "heic",
+  "heif",
+  "tif",
+  "tiff",
+  "jfif",
+];
+
+const videoExts = ["mp4", "webm", "mov", "avi", "mkv", "m4v", "flv", "ogv"];
+const audioExts = ["mp3", "wav", "ogg", "flac", "m4a", "opus"];
+const archiveExts = ["zip", "rar", "7z", "tar", "gz", "xz", "bz2"];
+const textExts = [
+  "txt",
+  "md",
+  "json",
+  "xml",
+  "csv",
+  "log",
+  "js",
+  "ts",
+  "tsx",
+  "html",
+  "css",
+];
 
 function isImageExt(ext: string) {
-  return imageExts.includes(ext.toLowerCase())
+  return imageExts.includes(ext.toLowerCase());
+}
+
+function isVideoExt(ext: string) {
+  return videoExts.includes(ext.toLowerCase());
 }
 
 function getThumbUrl(serverUrl: string, currentPath: string, file: FileItem) {
-  const pathWithTh = `${currentPath}${file.href}?th`
-  const params = new URLSearchParams({ op: "file", serverUrl, path: pathWithTh, cache: "1" })
-  return `/api/action?${params.toString()}`
+  const params = new URLSearchParams({
+    op: "file",
+    serverUrl,
+    path: `${currentPath}${file.href}`,
+    cache: "1",
+  });
+  if (isImageExt(file.ext)) params.set("thumb", "1");
+  return `/api/action?${params.toString()}`;
 }
 
-export function FileList({ dirs, files, onNavigate, onDownload, onDelete, onRename, currentPath, serverUrl }: FileListProps) {
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`
-    const units = ["KB", "MB", "GB", "TB"]
-    let size = bytes / 1024
-    let unitIndex = 0
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024
-      unitIndex++
-    }
-    return `${size.toFixed(1)} ${units[unitIndex]}`
-  }
+function getFileIcon(ext: string) {
+  if (isImageExt(ext)) return <ImageIcon className="h-5 w-5" />;
+  if (isVideoExt(ext)) return <FileVideoIcon className="h-5 w-5" />;
+  if (audioExts.includes(ext.toLowerCase()))
+    return <FileAudioIcon className="h-5 w-5" />;
+  if (archiveExts.includes(ext.toLowerCase()))
+    return <FileArchiveIcon className="h-5 w-5" />;
+  if (textExts.includes(ext.toLowerCase()))
+    return <FileTextIcon className="h-5 w-5" />;
+  return <FileIcon className="h-5 w-5" />;
+}
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
+export function FileList({
+  dirs,
+  files,
+  onNavigate,
+  onDownload,
+  onDelete,
+  onRename,
+  currentPath,
+  serverUrl,
+}: FileListProps) {
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ["KB", "MB", "GB", "TB"];
+    let size = bytes / 1024;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  };
 
   const renderThumbOrIcon = (file: FileItem) => {
-    if (isImageExt(file.ext)) {
-      const url = getThumbUrl(serverUrl, currentPath, file)
+    if (isImageExt(file.ext) || isVideoExt(file.ext)) {
+      const url = getThumbUrl(serverUrl, currentPath, file);
       return (
+        // biome-ignore lint/performance/noImgElement: The proxy URL is dynamic and cannot use next/image optimization.
         <img
           src={url}
           alt={`${decodeURIComponent(file.href)} thumbnail`}
-          width={64}
-          height={64}
+          width={48}
+          height={48}
           loading="lazy"
-          className="h-16 w-16 object-contain rounded-md border border-border/50 bg-muted/20"
+          className="h-12 w-12 object-contain rounded-md border border-border/50 bg-muted/20"
         />
-      )
+      );
     }
     return (
-      <div className="h-16 w-16 flex items-center justify-center rounded-md border border-border/50 bg-muted/20">
-        <div className="text-muted-foreground"><FileIcon className="h-8 w-8" /></div>
+      <div className="h-12 w-12 flex items-center justify-center rounded-md border border-border/50 bg-muted/20">
+        <div className="text-muted-foreground">{getFileIcon(file.ext)}</div>
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden bg-card">
@@ -103,109 +148,146 @@ export function FileList({ dirs, files, onNavigate, onDownload, onDelete, onRena
         <table className="w-full">
           <thead className="bg-muted/50 border-b border-border/50">
             <tr>
-              <th className="text-left px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground">Name</th>
+              <th className="text-left px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground">
+                Name
+              </th>
               <th className="text-left px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground hidden sm:table-cell">
                 Size
               </th>
               <th className="text-left px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground hidden md:table-cell">
                 Modified
               </th>
-              <th className="text-right px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground">Actions</th>
+              <th className="text-right px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground w-10"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
             {dirs.map((dir) => (
-              <tr
-                key={dir.href}
-                className="hover:bg-accent/50 transition-colors cursor-pointer"
-                onClick={() => onNavigate(currentPath + dir.href)}
-              >
-                <td className="px-3 sm:px-4 py-3">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <FolderIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                    <span className="text-sm text-foreground break-all">
-                      {decodeURIComponent(dir.href.replace(/\/$/, ""))}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">{formatSize(dir.sz)}</td>
-                <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">{new Date(dir.ts * 1000).toLocaleString()}</td>
-                <td className="px-3 sm:px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
-                    {onRename && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const currentName = decodeURIComponent(dir.href.replace(/\/$/, ""))
-                          const newName = prompt("Rename folder", currentName)
-                          if (newName && newName.trim()) onRename(dir, newName.trim())
-                        }}
+              <ContextMenu key={dir.href}>
+                <ContextMenuTrigger asChild>
+                  <tr
+                    className="hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => onNavigate(currentPath + dir.href)}
+                  >
+                    <td className="px-3 sm:px-4 py-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <FolderIcon className="h-5 w-5 text-primary flex-shrink-0" />
+                        <span className="text-sm text-foreground break-all">
+                          {decodeURIComponent(dir.href.replace(/\/$/, ""))}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
+                      {formatSize(dir.sz)}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
+                      {new Date(dir.ts * 1000).toLocaleString()}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-right">
+                      <MoreVerticalIcon className="h-4 w-4 text-muted-foreground inline" />
+                    </td>
+                  </tr>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    onClick={() => onNavigate(currentPath + dir.href)}
+                  >
+                    Open
+                  </ContextMenuItem>
+                  {onRename && (
+                    <ContextMenuItem
+                      onClick={() => {
+                        const currentName = decodeURIComponent(
+                          dir.href.replace(/\/$/, ""),
+                        );
+                        const newName = prompt("Rename folder", currentName);
+                        if (newName?.trim())
+                          onRename(dir, newName.trim());
+                      }}
+                    >
+                      <PencilIcon className="mr-2 h-4 w-4" />
+                      Rename
+                    </ContextMenuItem>
+                  )}
+                  {onDelete && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDelete(dir)}
                       >
-                        <PencilIcon className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {onDelete && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDelete(dir)
-                        }}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </td>
-              </tr>
+                        <TrashIcon className="mr-2 h-4 w-4" />
+                        Delete
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
             ))}
             {files.map((file) => (
-              <tr key={file.href} className="hover:bg-accent/50 transition-colors">
-                <td className="px-3 sm:px-4 py-3">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="flex-shrink-0">{renderThumbOrIcon(file)}</div>
-                    <span className="text-sm text-foreground break-all">{decodeURIComponent(file.href)}</span>
-                  </div>
-                </td>
-                <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">{formatSize(file.sz)}</td>
-                <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">{new Date(file.ts * 1000).toLocaleString()}</td>
-                <td className="px-3 sm:px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDownload(file)}>
-                      <DownloadIcon className="h-4 w-4" />
-                    </Button>
-                    {onRename && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          const name = decodeURIComponent(file.href)
-                          const baseName = name.replace(/\.[^/.]+$/, "")
-                          const newName = prompt("Rename file", baseName)
-                          if (newName && newName.trim()) onRename(file, newName.trim())
-                        }}
+              <ContextMenu key={file.href}>
+                <ContextMenuTrigger asChild>
+                  <tr
+                    className="hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => onDownload(file)}
+                  >
+                    <td className="px-3 sm:px-4 py-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex-shrink-0">
+                          {renderThumbOrIcon(file)}
+                        </div>
+                        <span className="text-sm text-foreground break-all">
+                          {decodeURIComponent(file.href)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
+                      {formatSize(file.sz)}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
+                      {new Date(file.ts * 1000).toLocaleString()}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 text-right">
+                      <MoreVerticalIcon className="h-4 w-4 text-muted-foreground inline" />
+                    </td>
+                  </tr>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onClick={() => onDownload(file)}>
+                    <DownloadIcon className="mr-2 h-4 w-4" />
+                    Download
+                  </ContextMenuItem>
+                  {onRename && (
+                    <ContextMenuItem
+                      onClick={() => {
+                        const name = decodeURIComponent(file.href);
+                        const baseName = name.replace(/\.[^/.]+$/, "");
+                        const newName = prompt("Rename file", baseName);
+                        if (newName?.trim())
+                          onRename(file, newName.trim());
+                      }}
+                    >
+                      <PencilIcon className="mr-2 h-4 w-4" />
+                      Rename
+                    </ContextMenuItem>
+                  )}
+                  {onDelete && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDelete(file)}
                       >
-                        <PencilIcon className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {onDelete && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(file)}>
-                        <TrashIcon className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </td>
-              </tr>
+                        <TrashIcon className="mr-2 h-4 w-4" />
+                        Delete
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
             ))}
           </tbody>
         </table>
       </div>
     </div>
-  )
+  );
 }
