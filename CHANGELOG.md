@@ -1,3 +1,12 @@
+# [1.2.0](https://github.com/andrecrjr/cool-copyparty-front/compare/v1.1.0...v1.2.0) (2026-08-26)
+
+
+### Features
+
+* add metrics retrieval and settings dialog in FileManager component ([0944018](https://github.com/andrecrjr/cool-copyparty-front/commit/094401836f7ab2604229cd8274c1687e7ca635c0))
+* add thumbnail generation for images in GET request, update file and media components to support thumbnail requests ([e0cd677](https://github.com/andrecrjr/cool-copyparty-front/commit/e0cd67783fb4748490c4ec6bcd501cae525b78f1))
+* update styles and layout for improved UI, enhance login form, and refactor service worker registration ([dafa3c3](https://github.com/andrecrjr/cool-copyparty-front/commit/dafa3c35d81df0dd44e11bfeb096cd261af7f127))
+
 # [1.1.0](https://github.com/andrecrjr/cool-copyparty-front/compare/v1.0.0...v1.1.0) (2026-02-20)
 
 
