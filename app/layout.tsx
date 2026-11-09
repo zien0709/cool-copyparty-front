@@ -16,8 +16,6 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  minimumScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
@@ -27,8 +25,8 @@ export const viewport: Viewport = {
 
 // Ensure metadataBase is set for proper OG/Twitter image resolving
 export const metadata: Metadata = {
-  title: "Cool Copy Party",
-  description: "Cool front end for Copyparty",
+  title: "CopySpace — Copyparty 檔案空間",
+  description: "以簡潔、響應式介面瀏覽你的 Copyparty 檔案空間。",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -51,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="zh-TW">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
         suppressHydrationWarning

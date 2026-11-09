@@ -1,3 +1,4 @@
+// biome-ignore-all lint/a11y/useMediaCaption: Arbitrary user media has no caption-track metadata or transcript source; an empty track would be misleading.
 "use client";
 
 import { DownloadIcon, FileTextIcon, Loader2Icon } from "lucide-react";
@@ -74,10 +75,10 @@ export function MediaViewer({
             const text = await response.text();
             setTextContent(text);
           } else {
-            setTextContent("Failed to load file content.");
+            setTextContent("無法載入檔案內容。");
           }
         } catch {
-          setTextContent("Error loading file content.");
+          setTextContent("讀取檔案時發生錯誤。");
         } finally {
           setIsLoading(false);
         }
@@ -115,6 +116,7 @@ export function MediaViewer({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="下載檔案"
               onClick={() => onDownload(file)}
             >
               <DownloadIcon className="h-4 w-4" />
@@ -136,21 +138,22 @@ export function MediaViewer({
             <video
               src={fileUrl}
               controls
-              autoPlay
+              playsInline
               className="max-w-full max-h-full shadow-lg bg-black"
-            >
-              <track kind="captions" />
-            </video>
+            ></video>
           )}
 
           {isAudio && (
             <div className="w-full max-w-md p-8 bg-card rounded-xl shadow-xl border flex flex-col items-center gap-6">
               <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
                 <FileTextIcon className="h-12 w-12 text-primary" />
-              </div>
-              <audio src={fileUrl} controls autoPlay className="w-full">
-                <track kind="captions" />
-              </audio>
+              </div>{" "}
+              <audio
+                src={fileUrl}
+                controls
+                preload="metadata"
+                className="w-full"
+              ></audio>
             </div>
           )}
 
@@ -174,9 +177,9 @@ export function MediaViewer({
             <div className="text-center space-y-4">
               <FileTextIcon className="h-16 w-16 mx-auto text-muted-foreground" />
               <p className="text-muted-foreground">
-                Preview not available for this file type.
+                此檔案類型尚不支援線上預覽。
               </p>
-              <Button onClick={() => onDownload(file)}>Download File</Button>
+              <Button onClick={() => onDownload(file)}>下載檔案</Button>
             </div>
           )}
         </div>

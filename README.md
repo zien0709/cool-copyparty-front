@@ -1,103 +1,124 @@
-# Cool CopyParty Front
+# CopySpace
 
-A clean Next.js frontend for interacting with a CopyParty file server. Log in using your server password, browse directories, upload and delete files, and quickly search — all proxied through a secure API route that never stores your password in the browser.
+**CopySpace** 是 Cool CopyParty Front 的本機獨立工作分支，使用 Next.js 16、React 19 與 shadcn/ui，為既有 Copyparty 檔案伺服器提供更清楚的繁體中文瀏覽介面。
 
-## TL;DR - How to run
+本專案只替換瀏覽器前端，不取代 Copyparty，也不搬動或修改原始檔案。
 
-```bash
-# Download the latest Standalone Build from Releases
-wget https://github.com/andrecrjr/cool-copyparty-front/releases/latest/download/copyparty-front.zip
+## 目前部署
 
-# Unzip it
-unzip copyparty-front.zip
+| 項目 | 位址／路徑 |
+|---|---|
+| CopySpace 前端 | http://192.168.50.72:3925 |
+| 原始 Copyparty | http://192.168.50.72:3923 |
+| 工作目錄 | `D:\Github\Cool-CopyParty-Front-Fork` |
+| Git 分支 | `zien/media-library-ui` |
+| 共享資料 | `D:\Shared`（不由本專案修改） |
 
+原始 Copyparty 的 3923 埠保留作為 fallback。CopySpace 使用獨立 Node.js 程序與 3925 埠。
 
-# Set environment variables (at minimum a strong cookie secret, and your desired port)
-COOKIE_SECRET=$(openssl rand -base64 32) PORT=3925 NODE_ENV=production node copyparty-front/server.js
+## 功能
 
-# Open http://localhost:3925 and log in with your CopyParty server URL and password.
+- 目錄瀏覽、麵包屑導覽、網格／清單檢視與目前資料夾搜尋。
+- 圖片、影片、音訊及文字檔預覽；實際播放能力仍取決於瀏覽器支援的格式與 codec。
+- 檔案上傳進度、建立資料夾、重新命名與刪除。
+- 依 Copyparty 回傳的權限旗標決定是否顯示寫入操作；唯讀帳號不會看到上傳入口。
+- 繁體中文登入與工作區介面。
+- 登入狀態由加密的 HttpOnly Cookie 保存；瀏覽器不會把 Copyparty 密碼放進 localStorage。
+
+## 登入方式
+
+預設使用 Copyparty 的密碼模式：
+
+1. 輸入 Copyparty 伺服器位址。
+2. **目前主機未啟用 `--usernames`，使用者名稱欄位請留空。**
+3. 在「密碼」欄輸入該 Copyparty 帳號所設定的密碼。
+
+只有當 Copyparty 確實以 `--usernames` 啟動時，才在「使用者名稱」欄位填入帳號；這時認證值會以 `username:password` 傳給伺服器。
+
+## 技術與需求
+
+- Node.js **20.9 或更新版本**（Next.js 16 系統需求）。
+- npm。
+- Next.js 16.1.6、React 19.2、TypeScript 5、Tailwind CSS 4。
+- 正在執行且允許此帳號存取的 Copyparty 伺服器。
+
+## 本機開發
+
+```powershell
+npm install
+npm run dev
 ```
 
-## Features
-- Connect to any reachable CopyParty server via URL
-- Directory listing with grid/list views and breadcrumb navigation
-- File uploads with progress, and optional delete (respecting server permissions)
-- Lightweight search/filter input for quick file discovery
-- Session restore via cookie and local storage of the `serverUrl`
+開啟 http://localhost:3925。
 
-## Requirements
-- Node.js 18+ and npm (or pnpm)
-- A running CopyParty server (for example `http://127.0.0.1:3923`)
-- Set a cookie encryption secret: add `COOKIE_SECRET=your-long-random-secret` to your environment
+## Windows production 部署
 
-## Quick Start (dev)
-- Install dependencies: `npm install`
-- Start dev server: `npm run dev`
-- Open the URL shown in the terminal (default `http://localhost:3925`)
+建立本機 `.env.local`（已由 Git 忽略，**不可提交**）：
 
-## Configuration
-- `COOKIE_SECRET` (recommended) or `NEXT_PUBLIC_COOKIE_SECRET` encrypts the auth cookie using AES‑256‑GCM.
-- No username is required; CopyParty APIs authenticate with the password only.
-- The app persists only `serverUrl` in `localStorage`. The password is never stored in web storage.
+```dotenv
+COOKIE_SECRET=<至少 32 字元的隨機值>
+COPYPARTY_ALLOWED_ORIGINS=http://192.168.50.72:3923
+```
 
-## Self-Hosting
-You can self-host in two ways: using a prebuilt ZIP from Releases (standalone build), or building locally.
+建置並啟動：
 
-### Option A: Download ZIP from GitHub Releases (standalone)
-1. Download the latest `Standalone Build` from [Releases](https://github.com/andrecrjr/cool-copyparty-front/releases) page.
-    - `wget https://github.com/andrecrjr/cool-copyparty-front/releases/latest/download/copyparty-front.zip` or latest one check the Releases page.
-    - Alternatively, build it yourself using the instructions below.
-2. Unzip it: `unzip copyparty-front.zip` (this creates `copyparty-front/`).
-3. Change into the standalone bundle: `cd copyparty-front/.next/standalone`.
-4. Set environment variables (at minimum a strong cookie secret, and your desired port):
-   - macOS/Linux: `COOKIE_SECRET=$(openssl rand -base64 32) PORT=3925 NODE_ENV=production node server.js`
-   - Windows (PowerShell): `$env:COOKIE_SECRET="your-long-random-secret"; $env:PORT="3925"; $env:NODE_ENV="production"; node server.js`
-5. Open `http://localhost:3925` and log in with your CopyParty server URL and password.
+```powershell
+npm run lint
+.\node_modules\.bin\tsc.cmd --noEmit
+npm run build
+.\scripts\Start-CopySpace.ps1
+```
 
-Notes:
-- The ZIP includes `.next/standalone` with `server.js` and minimal node_modules, plus static assets under `.next/standalone/.next/static` and `public` so it runs without the full dev environment.
-- Behind a reverse proxy, ensure `x-forwarded-proto` is set to `https` to enable secure cookies.
+停止服務：
 
-### Option B: Build it yourself
-1. Clone the repo and install deps:
-   - `git clone <your-repo-url>`
-   - `cd copyparty-front && npm install`
-2. Build production: `npm run build` (Next is configured with `output: 'standalone'`).
-3. Prepare the standalone bundle (assets copied into the standalone directory):
-   - `cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/`
-   - Or simply run: `make zip-deploy` (creates `build-front/` and `build-front.zip`).
-     Note: the `zip-deploy` Makefile target currently uses `pnpm`. If you use `npm`, either replace that line with `npm run build` or run the copy commands above manually.
-4. Start the standalone server:
-   - `cd .next/standalone`
-   - `COOKIE_SECRET=your-long-random-secret PORT=3925 NODE_ENV=production node server.js`
-5. Visit `http://localhost:3925`.
+```powershell
+.\scripts\Stop-CopySpace.ps1
+```
 
-Alternative start (non-standalone): `npm run serve` (uses `next start --port 3925`). Use this when running on a machine with the full Node environment available.
+啟動腳本會從 `.env.local` 載入 Cookie 金鑰、準備 standalone 靜態資產，並只在 `192.168.50.72:3925` 啟動服務。日誌位於：
 
-## Usage
-- On the login screen, enter your CopyParty server URL and password, then Connect.
-- Browse folders, switch between grid/list, and use breadcrumbs to navigate.
-- Upload files: open the upload modal, select files, watch progress, and refresh to see results.
-- Delete files (if permitted by the server) using the actions in the list.
-- Log out to clear the session. A valid session is restored automatically if the cookie is still valid.
+```text
+%LOCALAPPDATA%\CopySpace\logs
+```
 
-## Architecture
-- UI: React 19 + Next.js App Router, shadcn/ui components, lucide-react icons.
-- API proxy: `app/api/action/route.ts` forwards requests to the CopyParty server and appends `pw` as a query parameter after decrypting the cookie.
-- Middleware: `middleware.ts` ensures `/api/action` routes carry the encrypted cookie via a header.
-- Crypto: `lib/crypto.ts` derives a 32‑byte key from `COOKIE_SECRET` and encrypts the password in a `copyparty_auth` httpOnly cookie.
-- Types: `types/copyparty.ts` describes the server’s listing response; see `docs/devnotes.md` for CopyParty HTTP API details.
+### 其他區網裝置連線
 
-## Security Notes
-- Always set `COOKIE_SECRET` in production; the default dev fallback is insecure.
-- In production, cookies are `httpOnly`, `sameSite=lax`, and `secure` when served over HTTPS (or when `x-forwarded-proto=https`).
-- The browser never stores the password; it is encrypted server‑side and only forwarded to CopyParty during API requests.
+目前 Windows 網路設定檔是 Public。若要讓同一個 `192.168.50.0/24` 區網內的其他裝置連線，請在主機上以**系統管理員身分**執行一次：
 
-## Build and Deploy
-- Production build: `npm run build`
-- Start (standalone): `COOKIE_SECRET=your-long-random-secret PORT=3925 node .next/standalone/server.js`
-- Start (Next server): `npm run serve`
-- Deploy to your platform of choice (e.g., a VM or container). Ensure `COOKIE_SECRET` is configured and your app is served over HTTPS.
+```powershell
+.\scripts\Allow-CopySpace-LAN.ps1
+```
 
-## Acknowledgements
-- Powered by [CopyParty](https://github.com/9001/copyparty) and Next.js and me.
+此腳本只允許來源 `192.168.50.0/24` 連入本機 `192.168.50.72:3925/TCP`，不會開放其他連接埠或設定路由器 Port Forwarding。若只在主機本機使用，不需要建立此規則。
+
+> 目前前端與 Copyparty 使用 HTTP。HTTP 不會加密區網傳輸內容；請把它限制在可信任的私人網路，不要直接暴露到公網。正式對外使用前應先配置 HTTPS。
+
+## 認證與安全設計
+
+- 前端 API 透過 Copyparty 支援的 `PW` HTTP Header 認證，不把密碼附加到上游 URL query string。
+- 登入時先執行唯讀的 `GET /?ls` 驗證，再簽發 8 小時的 AES-256-GCM 加密 HttpOnly Cookie。
+- `COOKIE_SECRET` 在 production 必須設定；缺少或過短時不允許啟動認證流程。
+- production 必須設定 `COPYPARTY_ALLOWED_ORIGINS`。API 只會代理白名單內的 Copyparty origin，以限制 SSRF 風險。
+- Cookie 使用 `HttpOnly`、`SameSite=Lax`；只有經 HTTPS 存取時才設定 `Secure`。
+- Copyparty 是權限的最終來源。前端隱藏或停用操作只是 UX 保護，伺服器端仍會再次執行權限檢查。
+
+詳細認證契約與部署設定請參考 [docs/COPYPARTY-AUTH.md](docs/COPYPARTY-AUTH.md)。
+
+## 架構
+
+- `app/`：App Router 頁面與 API。
+- `components/`：登入、檔案工作區、清單、上傳與媒體預覽。
+- `app/api/action/route.ts`：伺服器端 Copyparty API proxy。
+- `lib/crypto.ts`：Cookie 憑證的 AES-256-GCM 加解密。
+- `types/copyparty.ts`：Copyparty JSON listing 型別。
+- `scripts/`：Windows 啟停與區網防火牆腳本。
+
+不再使用舊版 middleware 複製 Cookie header；API Route 直接讀取 HttpOnly Cookie。
+
+## Git 與上游
+
+- 本機工作分支：`zien/media-library-ui`。
+- `upstream` 只用於 fetch；push URL 已設為 `DISABLED`，避免誤推回原作者 repository。
+- 目前尚未設定使用者自己的 GitHub `origin`，也尚未推送遠端 Fork。
+- 在確認上游授權條款前，維持本機私人工作副本，不公開散布衍生版本。
+- 使用 Conventional Commits，將認證、安全、UI 與部署文件拆成獨立 commit。

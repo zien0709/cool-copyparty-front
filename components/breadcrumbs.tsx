@@ -20,7 +20,7 @@ export function Breadcrumbs({ path, onNavigate }: BreadcrumbsProps) {
         className="gap-2 h-8 sm:h-9 shrink-0"
       >
         <HomeIcon className="h-4 w-4" />
-        <span className="hidden sm:inline">Home</span>
+        <span className="hidden sm:inline">首頁</span>
       </Button>
 
       {segments.map((segment, index) => {
