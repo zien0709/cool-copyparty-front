@@ -108,7 +108,7 @@ function renderThumbOrIcon(
       // biome-ignore lint/performance/noImgElement: The proxy URL is dynamic and cannot use next/image optimization.
       <img
         src={url}
-        alt={`${decodeURIComponent(file.href)} thumbnail`}
+        alt={`${decodeURIComponent(file.href)} 縮圖`}
         width={128}
         height={128}
         loading="lazy"
@@ -147,7 +147,7 @@ export function FileGrid({
                   onNavigate(currentPath + dir.href);
                 }
               }}
-              className="group relative flex flex-col items-center p-3 sm:p-4 rounded-lg border border-border/50 bg-card hover:bg-accent hover:border-accent-foreground/20 transition-colors cursor-pointer h-full"
+              className="group relative flex h-full flex-col items-center rounded-2xl border border-border/60 bg-card/95 p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-accent/60 hover:shadow-lg sm:p-4"
             >
               <FolderIcon className="h-10 w-10 sm:h-12 sm:w-12 text-primary mb-2" />
               <span className="text-xs sm:text-sm text-center text-foreground line-clamp-2 break-all">
@@ -157,7 +157,7 @@ export function FileGrid({
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem onClick={() => onNavigate(currentPath + dir.href)}>
-              Open
+              開啟
             </ContextMenuItem>
             {onRename && (
               <ContextMenuItem
@@ -165,14 +165,14 @@ export function FileGrid({
                   const currentName = decodeURIComponent(
                     dir.href.replace(/\/$/, ""),
                   );
-                  const newName = prompt("Rename folder", currentName);
+                  const newName = prompt("重新命名資料夾", currentName);
                   if (newName?.trim()) {
                     onRename(dir, newName.trim());
                   }
                 }}
               >
                 <PencilIcon className="mr-2 h-4 w-4" />
-                Rename
+                重新命名
               </ContextMenuItem>
             )}
             {onDelete && (
@@ -183,7 +183,7 @@ export function FileGrid({
                   onClick={() => onDelete(dir)}
                 >
                   <TrashIcon className="mr-2 h-4 w-4" />
-                  Delete
+                  刪除
                 </ContextMenuItem>
               </>
             )}
@@ -196,7 +196,7 @@ export function FileGrid({
           <ContextMenuTrigger asChild>
             <button
               type="button"
-              className="group relative flex flex-col items-center p-3 sm:p-4 rounded-lg border border-border/50 bg-card hover:bg-accent hover:border-accent-foreground/20 transition-colors cursor-pointer h-full"
+              className="group relative flex h-full flex-col items-center rounded-2xl border border-border/60 bg-card/95 p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-accent/60 hover:shadow-lg sm:p-4"
               onClick={() => onDownload(file)}
             >
               <div className="mb-2">
@@ -215,21 +215,21 @@ export function FileGrid({
           <ContextMenuContent>
             <ContextMenuItem onClick={() => onDownload(file)}>
               <DownloadIcon className="mr-2 h-4 w-4" />
-              Download
+              下載
             </ContextMenuItem>
             {onRename && (
               <ContextMenuItem
                 onClick={() => {
                   const name = decodeURIComponent(file.href);
                   const baseName = name.replace(/\.[^/.]+$/, "");
-                  const newName = prompt("Rename file", baseName);
+                  const newName = prompt("重新命名檔案", baseName);
                   if (newName?.trim()) {
                     onRename(file, newName.trim());
                   }
                 }}
               >
                 <PencilIcon className="mr-2 h-4 w-4" />
-                Rename
+                重新命名
               </ContextMenuItem>
             )}
             {onDelete && (
@@ -240,7 +240,7 @@ export function FileGrid({
                   onClick={() => onDelete(file)}
                 >
                   <TrashIcon className="mr-2 h-4 w-4" />
-                  Delete
+                  刪除
                 </ContextMenuItem>
               </>
             )}

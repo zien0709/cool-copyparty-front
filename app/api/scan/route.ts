@@ -1,130 +1,183 @@
 import net from "node:net";
-import { NextResponse } from "next/server";
 import os from "node:os";
+import { NextResponse } from "next/server";
+
+const TARGET_PORT = 3923;
+const CONNECT_TIMEOUT_MS = 200;
+const SCAN_COOLDOWN_MS = 30_000;
+const CHUNK_SIZE = 32;
+
+let lastScanStartedAt = 0;
+
+function isPrivateIpv4(address: string): boolean {
+  const octets = address.split(".").map(Number);
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return false;
+  }
+
+  const [a, b] = octets;
+  return (
+    a === 10 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
+}
+
+function isDemoMode(serverUrl: string | null): boolean {
+  return serverUrl?.startsWith("demo://") || false;
+}
+
+function isSameOriginRequest(req: Request): boolean {
+  const requestUrl = new URL(req.url);
+  const origin = req.headers.get("origin");
+  const fetchSite = req.headers.get("sec-fetch-site");
+
+  if (origin) {
+    try {
+      if (new URL(origin).origin !== requestUrl.origin) return false;
+    } catch {
+      return false;
+    }
+  }
+
+  return !fetchSite || fetchSite === "same-origin";
+}
 
 function checkPort(
   host: string,
   port: number,
-  timeoutMs = 500,
+  timeoutMs = CONNECT_TIMEOUT_MS,
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
+    let settled = false;
 
-    // If the socket connects successfully, port is open
-    socket.on("connect", () => {
+    const finish = (isOpen: boolean) => {
+      if (settled) return;
+      settled = true;
       socket.destroy();
-      resolve(true);
-    });
+      resolve(isOpen);
+    };
 
-    // If there is an error (e.g., connection refused), port is closed
-    socket.on("error", () => {
-      socket.destroy();
-      resolve(false);
-    });
-
-    // If it times out, assume port is closed
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
     socket.setTimeout(timeoutMs);
-    socket.on("timeout", () => {
-      socket.destroy();
-      resolve(false);
-    });
-
-    // Initiate connection
+    socket.once("timeout", () => finish(false));
     socket.connect(port, host);
   });
 }
 
 function getLocalSubnets(): string[] {
   const interfaces = os.networkInterfaces();
-  const subnets: string[] = [];
+  const addresses = new Set<string>();
 
-  for (const name of Object.keys(interfaces)) {
-    const ifaceArray = interfaces[name];
+  for (const ifaceArray of Object.values(interfaces)) {
     if (!ifaceArray) continue;
 
     for (const iface of ifaceArray) {
-      // Only care about IPv4 and non-internal (non-loopback) addresses
-      if (iface.family === "IPv4" && !iface.internal) {
-        subnets.push(iface.address);
+      const family = String(iface.family);
+      const isIpv4 = family === "IPv4" || family === "4";
+      if (isIpv4 && !iface.internal && isPrivateIpv4(iface.address)) {
+        addresses.add(iface.address);
       }
     }
   }
 
-  return subnets;
+  return [...addresses];
 }
 
 function getIpsInSubnet(ipAddress: string): string[] {
-  // Very simple implementation assuming a standard /24 subnet mask for local networks
-  // e.g., 192.168.1.5 -> checks 192.168.1.1 to 192.168.1.254
-  const parts = ipAddress.split(".");
-  if (parts.length !== 4) return [];
-
-  const baseIp = `${parts[0]}.${parts[1]}.${parts[2]}`;
-  const ips: string[] = [];
-
-  for (let i = 1; i < 255; i++) {
-    ips.push(`${baseIp}.${i}`);
+  const parts = ipAddress.split(".").map(Number);
+  if (
+    parts.length !== 4 ||
+    parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
+    return [];
   }
 
-  // Also include localhost for dev convenience
-  ips.push("127.0.0.1");
-
-  return ips;
+  const baseIp = parts.slice(0, 3).join(".");
+  return Array.from({ length: 254 }, (_, index) => `${baseIp}.${index + 1}`);
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const serverUrl = searchParams.get("serverUrl");
 
-  if (serverUrl?.startsWith("demo://")) {
+  if (isDemoMode(serverUrl)) {
     return NextResponse.json(
-      { error: "Network scanning is disabled in demo mode" },
-      { status: 403 },
+      { error: "示範模式不提供區網掃描。" },
+      {
+        status: 403,
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      },
     );
   }
 
-  try {
-    const subnets = getLocalSubnets();
-    const allIpsToScan = new Set<string>();
-    allIpsToScan.add("127.0.0.1");
+  if (!isSameOriginRequest(req)) {
+    return NextResponse.json(
+      { error: "拒絕跨來源掃描請求。" },
+      {
+        status: 403,
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      },
+    );
+  }
 
-    for (const subnetIp of subnets) {
-      const ips = getIpsInSubnet(subnetIp);
-      for (const ip of ips) {
-        allIpsToScan.add(ip);
+  const now = Date.now();
+  const waitMs = SCAN_COOLDOWN_MS - (now - lastScanStartedAt);
+  if (waitMs > 0) {
+    return NextResponse.json(
+      { error: "掃描太頻繁，請稍後再試。" },
+      {
+        status: 429,
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+          "Retry-After": String(Math.ceil(waitMs / 1000)),
+        },
+      },
+    );
+  }
+  lastScanStartedAt = now;
+
+  try {
+    const targets = new Set<string>(["127.0.0.1"]);
+    for (const subnetIp of getLocalSubnets()) {
+      for (const ip of getIpsInSubnet(subnetIp)) {
+        targets.add(ip);
       }
     }
 
-    const TARGET_PORT = 3923;
-    const foundIps: string[] = [];
+    const candidates = [...targets];
+    const found: string[] = [];
 
-    // We can scan IPs in parallel to speed this up significantly
-    // However, Node.js net limit could be an issue if we spawn 255*N connections at once
-    // So we chunk them
-    const ipArray = Array.from(allIpsToScan);
-    const chunkSize = 50;
+    for (let i = 0; i < candidates.length; i += CHUNK_SIZE) {
+      const chunk = candidates.slice(i, i + CHUNK_SIZE);
+      const results = await Promise.all(
+        chunk.map(async (ip) => ({
+          ip,
+          isOpen: await checkPort(ip, TARGET_PORT),
+        })),
+      );
 
-    for (let i = 0; i < ipArray.length; i += chunkSize) {
-      const chunk = ipArray.slice(i, i + chunkSize);
-      const checks = chunk.map(async (ip) => {
-        const isOpen = await checkPort(ip, TARGET_PORT, 200); // fast 200ms timeout
-        if (isOpen) {
-          foundIps.push(ip);
-        }
-      });
-
-      await Promise.all(checks);
+      for (const result of results) {
+        if (result.isOpen) found.push(result.ip);
+      }
     }
 
-    // De-duplicate if needed
-    const uniqueFoundIps = Array.from(new Set(foundIps));
-
-    return NextResponse.json({ targets: uniqueFoundIps });
-  } catch (error) {
-    console.error("Scan error:", error);
     return NextResponse.json(
-      { error: "Failed to scan networks" },
-      { status: 500 },
+      { targets: [...new Set(found)] },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  } catch {
+    return NextResponse.json(
+      { error: "區網掃描失敗。" },
+      {
+        status: 500,
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      },
     );
   }
 }

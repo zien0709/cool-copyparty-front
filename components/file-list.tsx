@@ -127,7 +127,7 @@ export function FileList({
         // biome-ignore lint/performance/noImgElement: The proxy URL is dynamic and cannot use next/image optimization.
         <img
           src={url}
-          alt={`${decodeURIComponent(file.href)} thumbnail`}
+          alt={`${decodeURIComponent(file.href)} 縮圖`}
           width={48}
           height={48}
           loading="lazy"
@@ -143,19 +143,19 @@ export function FileList({
   };
 
   return (
-    <div className="border border-border/50 rounded-lg overflow-hidden bg-card">
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-muted/50 border-b border-border/50">
             <tr>
-              <th className="text-left px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground">
-                Name
+              <th className="px-3 py-3 text-left text-xs font-medium text-muted-foreground sm:px-4 sm:text-sm">
+                名稱
               </th>
-              <th className="text-left px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground hidden sm:table-cell">
-                Size
+              <th className="hidden px-3 py-3 text-left text-xs font-medium text-muted-foreground sm:table-cell sm:px-4 sm:text-sm">
+                大小
               </th>
               <th className="text-left px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground hidden md:table-cell">
-                Modified
+                修改時間
               </th>
               <th className="text-right px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium text-muted-foreground w-10"></th>
             </tr>
@@ -191,7 +191,7 @@ export function FileList({
                   <ContextMenuItem
                     onClick={() => onNavigate(currentPath + dir.href)}
                   >
-                    Open
+                    開啟
                   </ContextMenuItem>
                   {onRename && (
                     <ContextMenuItem
@@ -199,13 +199,13 @@ export function FileList({
                         const currentName = decodeURIComponent(
                           dir.href.replace(/\/$/, ""),
                         );
-                        const newName = prompt("Rename folder", currentName);
+                        const newName = prompt("重新命名資料夾", currentName);
                         if (newName?.trim())
                           onRename(dir, newName.trim());
                       }}
                     >
                       <PencilIcon className="mr-2 h-4 w-4" />
-                      Rename
+                      重新命名
                     </ContextMenuItem>
                   )}
                   {onDelete && (
@@ -216,7 +216,7 @@ export function FileList({
                         onClick={() => onDelete(dir)}
                       >
                         <TrashIcon className="mr-2 h-4 w-4" />
-                        Delete
+                        刪除
                       </ContextMenuItem>
                     </>
                   )}
@@ -254,20 +254,20 @@ export function FileList({
                 <ContextMenuContent>
                   <ContextMenuItem onClick={() => onDownload(file)}>
                     <DownloadIcon className="mr-2 h-4 w-4" />
-                    Download
+                    下載
                   </ContextMenuItem>
                   {onRename && (
                     <ContextMenuItem
                       onClick={() => {
                         const name = decodeURIComponent(file.href);
                         const baseName = name.replace(/\.[^/.]+$/, "");
-                        const newName = prompt("Rename file", baseName);
+                        const newName = prompt("重新命名檔案", baseName);
                         if (newName?.trim())
                           onRename(file, newName.trim());
                       }}
                     >
                       <PencilIcon className="mr-2 h-4 w-4" />
-                      Rename
+                      重新命名
                     </ContextMenuItem>
                   )}
                   {onDelete && (
@@ -278,7 +278,7 @@ export function FileList({
                         onClick={() => onDelete(file)}
                       >
                         <TrashIcon className="mr-2 h-4 w-4" />
-                        Delete
+                        刪除
                       </ContextMenuItem>
                     </>
                   )}

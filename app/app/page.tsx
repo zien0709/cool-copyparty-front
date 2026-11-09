@@ -161,7 +161,7 @@ export default function AppPage() {
             onClick={handleUseDemo}
             className="inline-flex items-center rounded-md bg-muted text-foreground px-3 py-2 text-xs sm:text-sm shadow border hover:bg-muted/80"
           >
-            Preview demo data
+            預覽示範工作區
           </button>
         </div>
       )}

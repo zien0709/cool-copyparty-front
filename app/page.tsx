@@ -1,92 +1,17 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Cool Copyparty – Another new Front End Self-hosted file management",
-  description:
-    "Cool Copyparty frontend: self-host your files, browse, upload locally. Fast Next.js UI with secure cookie auth.",
-  openGraph: {
-    title: "Cool Copyparty – Another new Front End Self-hosted file management",
-    description:
-      "Self-host your files with Copyparty and a modern Next.js frontend.",
-    url: "https://copyparty.example",
-    siteName: "Cool Copyparty",
-    images: [{ url: "/vercel.svg", width: 1200, height: 630 }],
-    type: "website",
+  title: "CopySpace — Copyparty 檔案空間",
+  description: "以簡潔、響應式介面瀏覽你的 Copyparty 檔案空間。",
+  applicationName: "CopySpace",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "CopySpace",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Cool Copyparty – Another new Front End Self-hosted file management",
-    description:
-      "Self-host your files with Copyparty and a modern Next.js frontend. Browse, upload, share.",
-    images: ["/vercel.svg"],
-  },
-  keywords: [
-    "Copyparty",
-    "self-hosted",
-    "file server",
-    "Next.js",
-    "upload",
-    "file management",
-    "open source",
-  ],
 };
 
-export default async function LandingPage() {
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("copyparty_auth");
-  if (auth?.value) {
-    redirect("/app");
-  }
-
-  return (
-    <main className="min-h-[calc(100vh-0px)] flex flex-col items-center justify-center p-4 sm:p-6 safe-px">
-      <section className="w-full max-w-3xl text-center space-y-6">
-        <h1 className="text-3xl sm:text-4xl font-bold">
-          Cool Copyparty – Another new Front end for your copyparty server
-        </h1>
-        <p className="text-base sm:text-lg text-muted-foreground">
-          A clean, simple front-end for your Copyparty server. Secure cookie
-          auth, smooth uploads, browsing, thumbnails, and easy sharing.
-        </p>
-        <ul className="text-sm text-muted-foreground list-disc list-inside text-left mx-auto w-full max-w-2xl space-y-1">
-          <li>SEO-friendly: descriptive metadata, keywords, and clean HTML.</li>
-          <li>Secure: httpOnly encrypted cookie, middleware validation.</li>
-          <li>Fast: minimal layout, optimized client components.</li>
-        </ul>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2">
-          <Link
-            href="/app"
-            className="inline-flex items-center rounded-md bg-black text-white px-5 py-2 font-medium hover:opacity-90 w-full sm:w-auto justify-center"
-          >
-            Open App
-          </Link>
-          <a
-            href="https://github.com/andrecrjr/cool-copyparty-front"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-md border px-5 py-2 font-medium hover:bg-muted w-full sm:w-auto justify-center"
-          >
-            Self Host
-          </a>
-        </div>
-
-        <footer className="pt-6 text-xs text-muted-foreground">
-          This is a front-end only, the{" "}
-          <a
-            className="underline"
-            href="https://github.com/CopyParty/copyparty"
-            target="_blank"
-            rel="noreferrer"
-          >
-            copyparty
-          </a>{" "}
-          server should be self-hosted.
-        </footer>
-      </section>
-    </main>
-  );
+export default function HomePage() {
+  redirect("/app");
 }

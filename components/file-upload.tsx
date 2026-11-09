@@ -33,6 +33,7 @@ interface FileUploadProps {
   onUploadComplete: () => void;
   onClose: () => void;
   initialFiles?: File[];
+  canUpload: boolean;
 }
 
 export function FileUpload({
@@ -41,13 +42,14 @@ export function FileUpload({
   onUploadComplete,
   onClose,
   initialFiles,
+  canUpload,
 }: FileUploadProps) {
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (initialFiles && initialFiles.length > 0) {
+    if (canUpload && !serverUrl.startsWith("demo://") && initialFiles && initialFiles.length > 0) {
       const newFiles: UploadFile[] = initialFiles.map((file) => ({
         id: crypto.randomUUID(),
         file,
@@ -56,21 +58,18 @@ export function FileUpload({
       }));
       setUploadFiles((prev) => [...prev, ...newFiles]);
     }
-  }, [initialFiles]);
+  }, [canUpload, initialFiles, serverUrl]);
 
   const isDemo = serverUrl.startsWith("demo://");
 
   // Detect active work: uploading or waiting for listing to update
   const hasUploading = uploadFiles.some((f) => f.status === "uploading");
-  const hasFinalizing = uploadFiles.some(
-    (f) => f.status === "success" && !!f.error,
-  );
-  const hasActive = hasUploading || hasFinalizing;
+  const hasActive = hasUploading;
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
-    if (isDemo) {
-      alert("Demo mode: uploads are disabled.");
+    if (isDemo || !canUpload) {
+      alert(isDemo ? "示範模式不提供上傳功能。" : "目前帳號只有讀取權限，無法上傳檔案。");
       return;
     }
 
@@ -164,7 +163,7 @@ export function FileUpload({
                       progress: 100,
                       error: ok
                         ? undefined
-                        : "Uploaded; listing may take a moment to update",
+                        : "檔案已送出，但清單尚未更新；稍後重新整理即可確認。",
                     }
                   : f,
               ),
@@ -177,7 +176,7 @@ export function FileUpload({
                   ? {
                       ...f,
                       status: "error" as const,
-                      error: `Upload failed: ${xhr.statusText}`,
+                      error: `上傳失敗（HTTP ${xhr.status}）`,
                     }
                   : f,
               ),
@@ -193,7 +192,7 @@ export function FileUpload({
                 ? {
                     ...f,
                     status: "error" as const,
-                    error: "Network error occurred",
+                    error: "網路連線中斷，請確認連線後重試。",
                   }
                 : f,
             ),
@@ -211,7 +210,7 @@ export function FileUpload({
             ? {
                 ...f,
                 status: "error" as const,
-                error: "Upload failed",
+                error: "上傳失敗，請稍後重試。",
               }
             : f,
         ),
@@ -220,8 +219,8 @@ export function FileUpload({
   };
 
   const handleUploadAll = async () => {
-    if (isDemo) {
-      alert("Demo mode: uploads are disabled.");
+    if (isDemo || !canUpload) {
+      alert(isDemo ? "示範模式不提供上傳功能。" : "目前帳號只有讀取權限，無法上傳檔案。");
       return;
     }
     const pendingFiles = uploadFiles
@@ -241,13 +240,13 @@ export function FileUpload({
       <Card className="w-full sm:max-w-2xl rounded-none sm:rounded-xl h-[85vh] sm:h-auto overflow-y-auto py-4 sm:py-6">
         <CardHeader className="px-4 sm:px-6">
           <CardTitle className="flex items-center gap-2">
-            <UploadIcon className="h-5 w-5" /> Upload Files
+            <UploadIcon className="h-5 w-5" /> 上傳檔案
           </CardTitle>
           <CardAction>
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Close upload"
+              aria-label="關閉上傳視窗"
               onClick={onClose}
               disabled={hasActive}
             >
@@ -256,39 +255,44 @@ export function FileUpload({
           </CardAction>
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
-          {isDemo && (
-            <div className="mb-3 flex items-center gap-2 rounded-md bg-yellow-100 text-yellow-900 px-3 py-2 text-xs sm:text-sm border border-yellow-200">
+          {!canUpload && !isDemo && (
+            <div className="mb-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:text-sm">
               <InfoIcon className="h-4 w-4" />
-              Demo mode: uploads are disabled.
+              目前帳號只有讀取權限，無法上傳檔案。
+            </div>
+          )}
+          {isDemo && (
+            <div className="mb-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:text-sm">
+              <InfoIcon className="h-4 w-4" />
+              示範模式不提供上傳功能。
             </div>
           )}
           {!isDemo && hasActive && (
             <div className="mb-3 flex items-center gap-2 rounded-md bg-yellow-100 text-yellow-900 px-3 py-2 text-xs sm:text-sm border border-yellow-200">
               <InfoIcon className="h-4 w-4" />
-              Uploads are still processing. Please don’t close this window until
-              they finish.
+              檔案仍在上傳或確認中，完成前請勿關閉此視窗。
             </div>
           )}
           <section
-            aria-label="File drop area"
-            className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center ${isDragging ? "border-primary" : "border-muted"} ${isDemo ? "opacity-60 pointer-events-none" : ""}`}
+            aria-label="檔案拖放區"
+            className={`rounded-2xl border-2 border-dashed p-4 text-center transition-colors sm:p-6 ${isDragging ? "border-primary bg-primary/5" : "border-border"} ${isDemo || !canUpload ? "pointer-events-none opacity-60" : "hover:border-primary/50"}`}
             onDragOver={(e) => {
               e.preventDefault();
-              setIsDragging(true);
+              if (canUpload && !isDemo) setIsDragging(true);
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              if (isDemo) {
-                alert("Demo mode: uploads are disabled.");
+              if (isDemo || !canUpload) {
+                alert(isDemo ? "示範模式不提供上傳功能。" : "目前帳號只有讀取權限，無法上傳檔案。");
                 return;
               }
               handleFileSelect(e.dataTransfer.files);
             }}
           >
             <p className="text-sm text-muted-foreground">
-              Drag and drop files here, or click to select
+              將檔案拖曳至此，或點擊下方按鈕選擇檔案
             </p>
             <input
               type="file"
@@ -296,15 +300,15 @@ export function FileUpload({
               ref={fileInputRef}
               className="hidden"
               onChange={(e) => handleFileSelect(e.target.files)}
-              disabled={isDemo}
+              disabled={isDemo || !canUpload}
             />
             <Button
               variant="secondary"
               className="mt-4"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isDemo}
+              disabled={isDemo || !canUpload}
             >
-              Choose Files
+              選擇檔案
             </Button>
           </section>
 
@@ -329,6 +333,8 @@ export function FileUpload({
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`從佇列移除 ${uf.file.name}`}
+                        disabled={hasActive}
                         onClick={() =>
                           setUploadFiles((prev) =>
                             prev.filter((_, idx) => idx !== index),
@@ -355,9 +361,9 @@ export function FileUpload({
                 <Button
                   onClick={handleUploadAll}
                   className="gap-2"
-                  disabled={isDemo}
+                  disabled={isDemo || !canUpload || hasActive || !uploadFiles.some((file) => file.status === "pending")}
                 >
-                  <UploadIcon className="h-4 w-4" /> Upload All
+                  <UploadIcon className="h-4 w-4" /> 全部上傳
                 </Button>
               </div>
             </div>
@@ -365,7 +371,7 @@ export function FileUpload({
 
           <div className="mt-6 flex justify-end gap-2">
             <Button variant="outline" onClick={onClose} disabled={hasActive}>
-              Close
+              關閉
             </Button>
           </div>
         </CardContent>
