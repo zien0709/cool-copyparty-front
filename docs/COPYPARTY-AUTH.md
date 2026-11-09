@@ -33,7 +33,8 @@ HTTP 不會加密傳輸內容；此部署僅供可信任的私人區網。不要
 
 ```dotenv
 COOKIE_SECRET=<至少 32 字元的隨機值>
-COPYPARTY_ALLOWED_ORIGINS=http://192.168.50.72:3923
+COPYPARTY_ALLOWED_ORIGINS=http://127.0.0.1:3924
+NEXT_PUBLIC_SITE_URL=http://192.168.50.72:3923
 ```
 
 production 沒有設定 `COOKIE_SECRET` 或 `COPYPARTY_ALLOWED_ORIGINS` 時，認證／proxy 請求會失敗關閉。origin 必須完全符合 scheme、host、port；多個 origin 以逗號分隔。
@@ -53,6 +54,7 @@ Copyparty 回傳的權限旗標由前端統一解析：
 
 ## 本機部署位置
 
-- 前端：`http://192.168.50.72:3925`
-- Copyparty：`http://192.168.50.72:3923`
-- 區網防火牆：僅允許 `192.168.50.0/24` 連入 TCP 3925（需管理員執行 `scripts/Allow-CopySpace-LAN.ps1`）。
+- 區網入口：`http://192.168.50.72:3923`（Python raw TCP gateway）。
+- CopySpace Next.js：`http://127.0.0.1:3925`（loopback only）。
+- Copyparty API：`http://127.0.0.1:3924`（loopback only）。
+- 區網防火牆：沿用既有 Python 3.12 TCP 3923 限定規則；3924／3925 不對區網開放。

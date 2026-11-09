@@ -8,13 +8,14 @@
 
 | 項目 | 位址／路徑 |
 |---|---|
-| CopySpace 前端 | http://192.168.50.72:3925 |
-| 原始 Copyparty | http://192.168.50.72:3923 |
+| CopySpace 主入口 | http://192.168.50.72:3923 |
+| CopySpace 內部前端 | http://127.0.0.1:3925（僅主機本機） |
+| Copyparty API 後端 | http://127.0.0.1:3924（僅主機本機） |
 | 工作目錄 | `D:\Github\Cool-CopyParty-Front-Fork` |
 | Git 分支 | `zien/media-library-ui` |
 | 共享資料 | `D:\Shared`（不由本專案修改） |
 
-原始 Copyparty 的 3923 埠保留作為 fallback。CopySpace 使用獨立 Node.js 程序與 3925 埠。
+3923 是區網入口，由 Python TCP gateway 原樣轉送到僅監聽 loopback 的 CopySpace `127.0.0.1:3925`。CopySpace API 再連到僅監聽 `127.0.0.1:3924` 的 Copyparty。原生 Copyparty 不再直接對區網開放；回退方式見本機 `D:\Copyparty\Rollback-CopySpace-Entry.ps1`。
 
 ## 功能
 
@@ -57,7 +58,8 @@ npm run dev
 
 ```dotenv
 COOKIE_SECRET=<至少 32 字元的隨機值>
-COPYPARTY_ALLOWED_ORIGINS=http://192.168.50.72:3923
+COPYPARTY_ALLOWED_ORIGINS=http://127.0.0.1:3924
+NEXT_PUBLIC_SITE_URL=http://192.168.50.72:3923
 ```
 
 建置並啟動：
@@ -75,7 +77,7 @@ npm run build
 .\scripts\Stop-CopySpace.ps1
 ```
 
-啟動腳本會從 `.env.local` 載入 Cookie 金鑰、準備 standalone 靜態資產，並只在 `192.168.50.72:3925` 啟動服務。日誌位於：
+啟動腳本會從 `.env.local` 載入 Cookie 金鑰、準備 standalone 靜態資產，並啟動兩個獨立程序：Next.js 只監聽 `127.0.0.1:3925`，Python TCP gateway 只在 `192.168.50.72:3923` 接受區網連線。Copyparty API 只監聽 `127.0.0.1:3924`。日誌位於：
 
 ```text
 %LOCALAPPDATA%\CopySpace\logs
@@ -83,13 +85,13 @@ npm run build
 
 ### 其他區網裝置連線
 
-目前 Windows 網路設定檔是 Public。若要讓同一個 `192.168.50.0/24` 區網內的其他裝置連線，請在主機上以**系統管理員身分**執行一次：
+其他區網裝置一律使用 `http://192.168.50.72:3923`。目前 Windows 已有一條限定 `192.168.50.0/24`、本機 TCP 3923、且綁定 Python 3.12 執行檔的 Public 防火牆規則；Python gateway 沿用該規則，因此不必新增 3925 或 3924 的入站規則。若日後該規則遺失，才以系統管理員執行 `scripts/Allow-CopySpace-LAN.ps1` 重建。
 
 ```powershell
 .\scripts\Allow-CopySpace-LAN.ps1
 ```
 
-此腳本只允許來源 `192.168.50.0/24` 連入本機 `192.168.50.72:3925/TCP`，不會開放其他連接埠或設定路由器 Port Forwarding。若只在主機本機使用，不需要建立此規則。
+
 
 > 目前前端與 Copyparty 使用 HTTP。HTTP 不會加密區網傳輸內容；請把它限制在可信任的私人網路，不要直接暴露到公網。正式對外使用前應先配置 HTTPS。
 
@@ -111,7 +113,7 @@ npm run build
 - `app/api/action/route.ts`：伺服器端 Copyparty API proxy。
 - `lib/crypto.ts`：Cookie 憑證的 AES-256-GCM 加解密。
 - `types/copyparty.ts`：Copyparty JSON listing 型別。
-- `scripts/`：Windows 啟停與區網防火牆腳本。
+- `scripts/`：Windows 啟停腳本、Python TCP gateway 與區網防火牆規則重建腳本。
 
 不再使用舊版 middleware 複製 Cookie header；API Route 直接讀取 HttpOnly Cookie。
 
@@ -119,6 +121,6 @@ npm run build
 
 - 本機工作分支：`zien/media-library-ui`。
 - `upstream` 只用於 fetch；push URL 已設為 `DISABLED`，避免誤推回原作者 repository。
-- 目前尚未設定使用者自己的 GitHub `origin`，也尚未推送遠端 Fork。
-- 在確認上游授權條款前，維持本機私人工作副本，不公開散布衍生版本。
+- `origin` 指向 `https://github.com/zien0709/cool-copyparty-front`；`zien/media-library-ui` 已推送，PR #1 已合併至 Fork 的 `main`。
+- 上游目前沒有宣告 License；本專案是 GitHub Fork network 的工作成果，不代表取得上游程式碼的獨立再授權。
 - 使用 Conventional Commits，將認證、安全、UI 與部署文件拆成獨立 commit。
