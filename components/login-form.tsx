@@ -23,7 +23,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onLogin }: LoginFormProps) {
-  const [serverUrl, setServerUrl] = useState("http://192.168.50.72:3923");
+  const [serverUrl, setServerUrl] = useState("http://127.0.0.1:3924");
   const [useUsernames, setUseUsernames] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -59,7 +59,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   };
 
   const handleSelectServer = (ip: string) => {
-    setServerUrl(`http://${ip}:3923`);
+    setServerUrl(`http://${ip}:3924`);
     setHasScanned(false);
   };
 
@@ -192,13 +192,13 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <label htmlFor="serverUrl" className="text-sm font-medium text-slate-700">伺服器位址</label>
+                <label htmlFor="serverUrl" className="text-sm font-medium text-slate-700">Copyparty 後端位址</label>
                 <div className="relative">
                   <Server className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     id="serverUrl"
                     type="url"
-                    placeholder="http://192.168.1.10:3923"
+                    placeholder="http://127.0.0.1:3924"
                     value={serverUrl}
                     onChange={(e) => setServerUrl(e.target.value)}
                     required
@@ -209,7 +209,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-400">填入正在執行 Copyparty 的主機位址。</p>
+                  <p className="text-xs text-slate-400">填入 Copyparty 後端位址；此位址由主機上的 CopySpace 伺服器連線。其他裝置只需開啟 CopySpace 主入口。</p>
                   <button
                     type="button"
                     onClick={handleScan}
@@ -236,13 +236,13 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                               className="flex min-h-10 w-full items-center gap-2 px-3 text-left text-sm text-slate-700 transition hover:bg-indigo-50"
                             >
                               <Server className="h-4 w-4 text-indigo-500" />
-                              {ip}:3923
+                              {ip}:3924
                             </button>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="px-3 py-3 text-xs text-slate-500">在 3923 埠沒有找到 Copyparty 伺服器。</p>
+                      <p className="px-3 py-3 text-xs text-slate-500">在 3924 埠沒有找到本機 Copyparty 後端。</p>
                     )}
                   </div>
                 )}

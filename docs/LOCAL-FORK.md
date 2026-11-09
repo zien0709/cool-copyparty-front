@@ -2,22 +2,23 @@
 
 ## 目的
 
-從上游 Cool CopyParty Front 建立獨立工作副本，為既有 Copyparty 提供更易用的瀏覽器介面；不修改原本伺服器、共享資料或帳號設定。
+從上游 Cool CopyParty Front 建立獨立工作副本，以 CopySpace 作為區網入口。Copyparty 仍是檔案與權限後端；只將其監聽位址／埠調整為 loopback 3924，不改帳號、密碼、共享資料或 ACL。
 
 ## 位置與服務
 
 - 工作目錄：`D:\Github\Cool-CopyParty-Front-Fork`
 - 工作分支：`zien/media-library-ui`
 - 上游遠端：`upstream` → `https://github.com/andrecrjr/cool-copyparty-front.git`
-- 原始 Copyparty：`http://192.168.50.72:3923`（保持不變）
-- CopySpace 前端：`http://192.168.50.72:3925`
+- CopySpace 區網入口：`http://192.168.50.72:3923`（Python TCP gateway）
+- CopySpace Next.js：`http://127.0.0.1:3925`（loopback only）
+- Copyparty API：`http://127.0.0.1:3924`（loopback only）
 - 共享資料：`D:\Shared`（保持不變）
 
 ## 不可違反的邊界
 
-1. 前端開發不得修改、停止或重新設定 `D:\Copyparty`。
+1. Copyparty 的設定只允許為整合入口調整監聽位址／埠；不得改動帳號、密碼、共享資料或 `D:\Shared` ACL。
 2. 不得修改 `D:\Shared` 的內容或 ACL。
-3. CopySpace 使用自己的 Node.js 程序與 3925 埠。
+3. CopySpace 使用 Next.js loopback 3925 與 Python TCP gateway LAN 3923；Copyparty API 僅 loopback 3924。
 4. 不得提交密碼、Cookie、API 憑證、`.env*` 或機器專屬秘密。
 5. Copyparty 是認證與權限的最終來源；前端不得把唯讀帳號顯示成可寫入。
 6. 其他裝置只用瀏覽器，不要求安裝桌面客戶端。
@@ -26,7 +27,7 @@
 ## Git 工作流程
 
 - 在 `zien/media-library-ui` 工作，不直接在 `main` 開發。
-- `upstream` 只用於 fetch，push URL 已封鎖為 `DISABLED`；使用者自己的 GitHub Fork／`origin` 尚未設定。
+- `origin` 指向 `https://github.com/zien0709/cool-copyparty-front`；`upstream` 只用於 fetch，push URL 已封鎖為 `DISABLED`。
 - 使用 Conventional Commits，按認證、安全、UI、部署文件拆分。
 - 每個里程碑至少執行 Biome lint、TypeScript typecheck 與 production build。
 - commit 前執行 `git diff --check`，確認 `.env.local` 被忽略。
@@ -35,14 +36,14 @@
 
 - 啟動：`scripts/Start-CopySpace.ps1`
 - 停止：`scripts/Stop-CopySpace.ps1`
-- 區網防火牆：`scripts/Allow-CopySpace-LAN.ps1`（需管理員權限，僅允許 `192.168.50.0/24` 到 TCP 3925）。
+- 區網防火牆：沿用既有 Python 3.12 TCP 3923 限定規則；只有在該規則遺失時才執行 `scripts/Allow-CopySpace-LAN.ps1`。
 - 日誌：`%LOCALAPPDATA%\CopySpace\logs`
-- 原始 Copyparty 3923 埠保持可用，作為 rollback／fallback。
+- 回退腳本：`D:\Copyparty\Rollback-CopySpace-Entry.ps1`，會停止 gateway、還原 Copyparty 原始設定並重新啟動原生介面。
 
 ## 目前狀態
 
-- CopySpace 已在主機本機 3925 啟動，HTTP smoke test 通過。
-- 原 Copyparty 3923 回應 HTTP 200。
+- CopySpace 的公開入口是 3923；Next.js 只監聽 loopback 3925。
+- Copyparty API 只監聽 loopback 3924。
 - 未登入 API 回傳 401；不在 allow-list 的 upstream origin 回傳 400。
 - 尚未完成真實使用者密碼登入測試。
-- 目前 Windows 網路設定檔為 Public；建立限定區網範圍的 3925 防火牆規則需要系統管理員權限。
+- Windows Public 網路沿用原有 Python 3.12 TCP 3923 限定規則；不需系統管理員新增 3925 規則。
