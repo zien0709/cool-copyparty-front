@@ -47,3 +47,27 @@
 * **pwa:** add progressive web app support ([3b4f493](https://github.com/andrecrjr/cool-copyparty-front/commit/3b4f4934acaf476c6870b477c861e328c65c72f3))
 * restructure app with landing page and auth flow ([83a1cf6](https://github.com/andrecrjr/cool-copyparty-front/commit/83a1cf6f732163c7677a2a94b7b89ba7ab5b4c4c))
 * update landing page title to reflect new frontend ([2462347](https://github.com/andrecrjr/cool-copyparty-front/commit/2462347e1317d17abee6436c341e5da6dd029fdb))
+
+# CopySpace Fork changes
+
+## 2026-11-09 — Windows LAN entry integration
+
+### Added
+- Add a Python raw TCP Gateway as the single LAN entry at 192.168.50.72:3923.
+- Keep Next.js bound to 127.0.0.1:3925 and Copyparty bound to 127.0.0.1:3924.
+- Add Windows startup, stop, firewall restoration, and rollback documentation.
+- Add architecture, deployment, runbook, troubleshooting, API, security, testing, and contribution documentation.
+
+### Changed
+- Update the host deployment topology: LAN clients use port 3923 through the Gateway.
+- Keep Copyparty as the authentication, storage, and ACL authority.
+- Mark ADR-0001 as superseded by ADR-0002.
+
+### Security
+- Document the HTTP-only LAN deployment limitation, loopback boundaries, upstream origin allowlist, and cache behavior.
+
+## 2026-11-09 — Startup reliability
+
+- Make the Windows launcher wait for the expected LAN IP and Copyparty backend readiness.
+- Reuse healthy existing frontend processes and avoid duplicate Gateway processes.
+- Document the host-specific rollback procedure.
