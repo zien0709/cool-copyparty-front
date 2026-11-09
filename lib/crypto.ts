@@ -1,14 +1,17 @@
 import crypto from "node:crypto";
 
-const DEFAULT_SECRET =
-  process.env.COOKIE_SECRET ||
-  process.env.NEXT_PUBLIC_COOKIE_SECRET ||
-  "dev-insecure-secret-change-me";
+const DEVELOPMENT_SECRET = "local-development-secret-not-for-production";
 
 function getKey(): Buffer {
-  // Derive a 32-byte key from the secret using PBKDF2
+  const secret = process.env.COOKIE_SECRET;
+  if (process.env.NODE_ENV === "production" && (!secret || secret.length < 32)) {
+    throw new Error(
+      "COOKIE_SECRET must be configured with at least 32 characters in production.",
+    );
+  }
+
   return crypto.pbkdf2Sync(
-    DEFAULT_SECRET,
+    secret || DEVELOPMENT_SECRET,
     "copyparty-cookie-salt",
     100000,
     32,
@@ -18,7 +21,7 @@ function getKey(): Buffer {
 
 export function encrypt(value: string): string {
   const key = getKey();
-  const iv = crypto.randomBytes(12); // AES-GCM standard IV length
+  const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const encrypted = Buffer.concat([
     cipher.update(value, "utf8"),
@@ -33,6 +36,8 @@ export function decrypt(payloadB64: string): string | null {
   try {
     const key = getKey();
     const payload = Buffer.from(payloadB64, "base64");
+    if (payload.byteLength < 29) return null;
+
     const iv = payload.subarray(0, 12);
     const tag = payload.subarray(12, 28);
     const data = payload.subarray(28);
