@@ -47,3 +47,18 @@
 - 未登入 API 回傳 401；不在 allow-list 的 upstream origin 回傳 400。
 - 尚未完成真實使用者密碼登入測試。
 - Windows Public 網路沿用原有 Python 3.12 TCP 3923 限定規則；不需系統管理員新增 3925 規則。
+
+
+## 入口整合紀錄（2026-11-09）
+
+- Startup 資料夾含 `Copyparty.vbs` 與 `CopySpace.vbs`；CopySpace 啟動腳本會等待 loopback 後端就緒，避免開機競速。
+- GitHub PR #1 與 PR #2 均已合併至自己的 Fork `main`；最新入口整合 commit 為 `a66a5ce`（PR #2 merge commit `584405f`）。
+- LAN 唯一入口：`192.168.50.72:3923` → Python TCP gateway → `127.0.0.1:3925` CopySpace。
+- CopySpace API upstream：`127.0.0.1:3924`，僅 loopback。
+- Copyparty 設定只修改 `[global]` 的 bind address 與 port；帳號、認證、`D:\Shared` 路徑及 ACL 維持原樣。
+- 原始設定備份：`D:\Copyparty\backups\copyparty.conf.before-copyspace-entry.bak`。
+- 回退腳本：`D:\Copyparty\Rollback-CopySpace-Entry.ps1`。
+- 回退時會停止 CopySpace gateway／前端、還原備份設定、重新啟動原生 Copyparty，並停用 CopySpace 啟動項。
+- Host 端 HTTP smoke test：3923 CopySpace 200；3924 backend 200；未登入 API 401；不允許的 upstream 400。
+- 三個 listener 分別為 `192.168.50.72:3923`、`127.0.0.1:3924`、`127.0.0.1:3925`。
+- 尚未從另一台實體 LAN 裝置完成外部連線測試，也尚未以真實帳號密碼執行登入流程。

@@ -28,14 +28,23 @@ if ([string]::IsNullOrWhiteSpace($env:COOKIE_SECRET) -or $env:COOKIE_SECRET.Leng
 if (-not $env:COPYPARTY_ALLOWED_ORIGINS.Split(",").Contains($BackendOrigin)) {
   throw "COPYPARTY_ALLOWED_ORIGINS must include $BackendOrigin."
 }
-if (-not (Get-NetIPAddress -AddressFamily IPv4 -IPAddress $HostAddress -ErrorAction SilentlyContinue)) {
-  throw "The expected LAN address $HostAddress is not assigned to this host."
+# Startup-folder scripts may run before the network adapter receives its LAN address.
+$NetworkReady = $false
+for ($Attempt = 0; $Attempt -lt 24; $Attempt++) {
+  if (Get-NetIPAddress -AddressFamily IPv4 -IPAddress $HostAddress -ErrorAction SilentlyContinue) {
+    $NetworkReady = $true
+    break
+  }
+  Start-Sleep -Seconds 5
+}
+if (-not $NetworkReady) {
+  throw "The expected LAN address $HostAddress was not assigned within 120 seconds."
 }
 
 # Startup-folder scripts are not guaranteed to run in a strict order.
 # Wait for Copyparty's loopback API before publishing the CopySpace entry point.
 $BackendReady = $false
-for ($Attempt = 0; $Attempt -lt 60; $Attempt++) {
+for ($Attempt = 0; $Attempt -lt 120; $Attempt++) {
   try {
     $BackendResponse = Invoke-WebRequest -Uri "$BackendOrigin/" -UseBasicParsing -TimeoutSec 2
     if ($BackendResponse.StatusCode -eq 200) {
@@ -46,7 +55,7 @@ for ($Attempt = 0; $Attempt -lt 60; $Attempt++) {
   Start-Sleep -Seconds 1
 }
 if (-not $BackendReady) {
-  throw "Copyparty backend did not become ready at $BackendOrigin within 60 seconds."
+  throw "Copyparty backend did not become ready at $BackendOrigin within 120 seconds."
 }
 
 $StaticSource = Join-Path $ProjectRoot ".next\static"
@@ -71,11 +80,23 @@ $ExistingFrontend = Get-CimInstance Win32_Process | Where-Object {
 } | Select-Object -First 1
 
 if ($ExistingFrontend) {
-  $FrontendListener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -eq $ExistingFrontend.ProcessId }
-  if ($FrontendListener -and $FrontendListener.LocalAddress -ne $FrontendHost) {
+  $ExistingReady = $false
+  for ($Attempt = 0; $Attempt -lt 20; $Attempt++) {
+    $FrontendListener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue |
+      Where-Object { $_.OwningProcess -eq $ExistingFrontend.ProcessId -and $_.LocalAddress -eq $FrontendHost }
+    if ($FrontendListener) {
+      try {
+        $Response = Invoke-WebRequest -Uri "http://$($FrontendHost):$Port/app" -UseBasicParsing -TimeoutSec 2
+        if ($Response.StatusCode -eq 200) { $ExistingReady = $true; break }
+      } catch {}
+    }
+    Start-Sleep -Milliseconds 500
+  }
+
+  if (-not $ExistingReady) {
     Stop-Process -Id $ExistingFrontend.ProcessId -Force
     $ExistingFrontend = $null
-    Write-Output "Restarted frontend because it was not loopback-only."
+    Write-Output "Restarted frontend because it was not ready on loopback."
   }
 }
 
